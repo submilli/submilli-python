@@ -1,0 +1,47 @@
+name: Release
+
+# Each package is released on its own tag: `submilli-v0.1.0` publishes the SDK,
+# `langchain-submilli-v0.1.0` the integration. Publishing goes through PyPI
+# trusted publishing: register this workflow and the `pypi` environment for
+# both projects on PyPI first. Release `submilli` before the first
+# `langchain-submilli` that needs it.
+on:
+  push:
+    tags: ["submilli-v*", "langchain-submilli-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.tag.outputs.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Read the package and version from the tag
+        id: tag
+        run: |
+          package="${GITHUB_REF_NAME%-v*}"
+          version="${GITHUB_REF_NAME##*-v}"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+          test "$(uv version --package "$package" --short)" = "$version"
+      - run: uv build --package ${{ steps.tag.outputs.package }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

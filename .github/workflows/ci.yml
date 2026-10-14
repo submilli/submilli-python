@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # The submilli-server release the integration tests run against.
+  SUBMILLI_VERSION: "0.4.1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-packages --all-groups --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - name: The sync client matches the async one
+        run: uv run python packages/submilli/scripts/generate_sync.py --check
+
+  types:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - { dir: submilli, module: submilli }
+          - { dir: langchain-submilli, module: langchain_submilli }
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-packages --all-groups --locked
+      - run: uv run mypy
+      - run: uv run pyright
+      - name: The public API is fully typed
+        run: uv run pyright --verifytypes ${{ matrix.package.module }} --ignoreexternal
+
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [submilli, langchain-submilli]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        exclude:
+          # langchain-submilli is tested on the Pythons its dependencies support.
+          - { package: langchain-submilli, python: "3.14" }
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --all-packages --all-groups --locked
+      - run: uv run pytest
+
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { package: submilli, tests: tests/integration }
+          # Tests that need the research Blueprint's Packages are skipped here.
+          - { package: langchain-submilli, tests: tests/integration_tests }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Download submilli-server ${{ env.SUBMILLI_VERSION }}
+        run: |
+          mkdir -p .submilli-bin && cd .submilli-bin
+          base=https://github.com/submilli/submilli-runtime/releases/download/v${SUBMILLI_VERSION}
+          curl -fsSLO "$base/submilli-server-x86_64-unknown-linux-musl"
+          curl -fsSLO "$base/SHA256SUMS"
+          grep ' submilli-server-x86_64-unknown-linux-musl$' SHA256SUMS | sha256sum -c
+          mv submilli-server-x86_64-unknown-linux-musl submilli-server
+          chmod +x submilli-server
+      - run: uv sync --all-packages --all-groups --locked
+      - run: uv run pytest ${{ matrix.tests }}
+        working-directory: packages/${{ matrix.package }}
+        env:
+          SUBMILLI_BIN: ${{ github.workspace }}/.submilli-bin
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build --all-packages
+      - name: Each wheel installs and imports on its own
+        run: |
+          uv run --isolated --no-project --with dist/submilli-*.whl python -c "import submilli"
+          uv run --isolated --no-project --with dist/submilli-*.whl --with dist/langchain_submilli-*.whl \
+            python -c "import langchain_submilli"
+      - name: langchain-submilli depends on submilli from PyPI, not the workspace
+        run: unzip -p dist/langchain_submilli-*.whl '*/METADATA' | grep -x 'Requires-Dist: submilli<0.2,>=0.1.0'

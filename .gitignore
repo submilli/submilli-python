@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.submilli-bin/
+
+# Local only: model and service keys, the test server's home and token
+.env
+.submilli-test/
+.submilli-test.log
+.submilli-token
+.benchmarks/

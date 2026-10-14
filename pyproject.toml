@@ -1,0 +1,30 @@
+# The workspace: the `submilli` SDK and the `langchain-submilli` integration,
+# each published to PyPI on its own. Shared tooling lives here; type checks and
+# tests run per package, with each package's own settings (see README.md).
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pyright>=1.1.414",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["packages/submilli/src", "packages/langchain-submilli/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D2", "D4"]
+ignore = ["D203", "D213", "D401", "D413"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["submilli", "langchain_submilli"]
+
+[tool.ruff.lint.per-file-ignores]
+"packages/*/tests/**" = ["D"]
+"packages/*/scripts/**" = ["D"]
+"packages/*/examples/**" = ["D"]
