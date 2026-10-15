@@ -12,6 +12,39 @@ It needs Python 3.11 or later and submilli-server 0.4.1 or later. For LangChain 
 deepagents, [`langchain-submilli`](https://github.com/submilli/submilli-python/tree/main/packages/langchain-submilli)
 builds on it.
 
+## Get a server
+
+The installer puts `submilli`, the CLI, and `submilli-server` on your `PATH`. Start the
+server with a token:
+
+```sh
+curl -fsSL https://submilli.ai/install.sh | sh     # macOS and Linux; Windows: irm https://submilli.ai/install.ps1 | iex
+export SUBMILLI_SERVER_TOKEN=$(openssl rand -hex 32)
+submilli-server &                                  # listens on 127.0.0.1:8128
+```
+
+Then register a Blueprint, the policy programs run under. This one allows only computation and
+declares the `userId` variable:
+
+```yaml
+# blueprint.yaml
+kind: blueprint
+name: hello
+variables:
+  userId:
+    required: true
+default: deny
+```
+
+```sh
+submilli server blueprint apply blueprint.yaml
+```
+
+[Install](https://submilli.ai/docs/install/), [Run the server](https://submilli.ai/docs/server/run-the-server/),
+and [Register a Blueprint](https://submilli.ai/docs/server/register-a-blueprint/) cover the
+details, and the [Blueprint file reference](https://submilli.ai/docs/reference/blueprint-file/)
+lists what a Blueprint can grant: HTTP, files, secrets, model calls, and your own tools.
+
 ## Quick start
 
 ```python
@@ -28,7 +61,7 @@ export function main(): string {
 
 async def main() -> None:
     async with AsyncSubmilli() as client:
-        session = await client.sessions.create("research", variables={"userId": "u_ada"})
+        session = await client.sessions.create("hello", variables={"userId": "u_ada"})
         result = await client.sessions.run(session.id, PROGRAM, idempotency_key="call-1")
         print(result.result)  # "2"
 
@@ -42,7 +75,7 @@ asyncio.run(main())
 from submilli import Submilli
 
 with Submilli() as client:
-    session = client.sessions.create("research", variables={"userId": "u_ada"})
+    session = client.sessions.create("hello", variables={"userId": "u_ada"})
     print(client.sessions.run(session.id, PROGRAM).result)
 ```
 

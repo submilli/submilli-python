@@ -10,6 +10,23 @@ code as TypeScript programs on submilli-server, under a Blueprint's policy, on b
 
 Each package has its own README, changelog, and version, and is released on its own.
 
+## Get a server
+
+Both packages talk to a running submilli-server. Install Submilli, which brings the
+`submilli` CLI and `submilli-server`, and start the server:
+
+```sh
+curl -fsSL https://submilli.ai/install.sh | sh     # macOS and Linux; Windows: irm https://submilli.ai/install.ps1 | iex
+export SUBMILLI_SERVER_TOKEN=$(openssl rand -hex 32)
+submilli-server &                                  # listens on 127.0.0.1:8128
+```
+
+Register a Blueprint with `submilli server blueprint apply blueprint.yaml`. Each package's
+README has a minimal Blueprint to start from. The [Submilli docs](https://submilli.ai/docs/)
+cover [installing](https://submilli.ai/docs/install/), [running the server](https://submilli.ai/docs/server/run-the-server/),
+[writing Blueprints](https://submilli.ai/docs/blueprints/start-a-blueprint/), and
+[deploying](https://submilli.ai/docs/server/deploy-on-linux/).
+
 ## Development
 
 The repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/).

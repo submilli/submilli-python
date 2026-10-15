@@ -17,8 +17,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync --all-packages --all-groups --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -36,8 +36,8 @@ jobs:
       run:
         working-directory: packages/${{ matrix.package.dir }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync --all-packages --all-groups --locked
       - run: uv run mypy
       - run: uv run pyright
@@ -57,8 +57,8 @@ jobs:
       run:
         working-directory: packages/${{ matrix.package }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           python-version: ${{ matrix.python }}
       - run: uv sync --all-packages --all-groups --locked
@@ -73,8 +73,8 @@ jobs:
           # Tests that need the research Blueprint's Packages are skipped here.
           - { package: langchain-submilli, tests: tests/integration_tests }
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - name: Download submilli-server ${{ env.SUBMILLI_VERSION }}
         run: |
           mkdir -p .submilli-bin && cd .submilli-bin
@@ -93,8 +93,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - run: uv build --all-packages
       - name: Each wheel installs and imports on its own
         run: |

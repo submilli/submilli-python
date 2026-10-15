@@ -18,8 +18,8 @@ jobs:
     outputs:
       package: ${{ steps.tag.outputs.package }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - name: Read the package and version from the tag
         id: tag
         run: |
@@ -28,7 +28,7 @@ jobs:
           echo "package=$package" >> "$GITHUB_OUTPUT"
           test "$(uv version --package "$package" --short)" = "$version"
       - run: uv build --package ${{ steps.tag.outputs.package }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -40,7 +40,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/

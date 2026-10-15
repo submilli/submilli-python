@@ -257,19 +257,52 @@ as well.
 
 ## Run a server
 
-Install Submilli and start a server as
-[Connect a harness](https://submilli.ai/docs/tutorials/connect-a-harness) describes. Then
-register the Blueprint. `examples/research/` holds the tutorial's `blueprint.yaml`,
-`prompt.txt`, and `note.ts`. Export the server's token where the agent runs:
+Install Submilli. The installer puts both `submilli`, the CLI, and `submilli-server` on your
+`PATH`:
 
 ```sh
-export SUBMILLI_SERVER=http://127.0.0.1:8128
-export SUBMILLI_SERVER_TOKEN=...
+curl -fsSL https://submilli.ai/install.sh | sh     # macOS and Linux
+irm https://submilli.ai/install.ps1 | iex          # Windows (PowerShell)
 ```
 
-The [HTTP API reference](https://submilli.ai/docs/reference/http-api) describes every endpoint
-this package calls, and the [Blueprint file reference](https://submilli.ai/docs/reference/blueprint-file)
-describes policies, variables, secrets, and `idle_timeout`.
+Start the server with a token. It listens on `127.0.0.1:8128`, which is where the middleware
+looks by default:
+
+```sh
+export SUBMILLI_SERVER_TOKEN=$(openssl rand -hex 32)
+submilli-server &
+```
+
+Register a Blueprint. This one allows only computation, which is enough to try the middleware.
+It declares `userId`, which the middleware fills from `user_id` in the run's context:
+
+```yaml
+# blueprint.yaml
+kind: blueprint
+name: hello
+variables:
+  userId:
+    required: true
+default: deny
+```
+
+```sh
+submilli server blueprint apply blueprint.yaml
+```
+
+Run the agent where `SUBMILLI_SERVER_TOKEN` is set, with `SubmilliMiddleware(blueprint="hello")`.
+Set `SUBMILLI_SERVER` too if the server is somewhere other than `http://127.0.0.1:8128`.
+
+To give programs HTTP, files, secrets, or model calls, grant them in the Blueprint. The
+`examples/research/` directory in the [repository](https://github.com/submilli/submilli-python/tree/main/packages/langchain-submilli/examples/research)
+holds a Blueprint that searches the web and keeps notes, with its `prompt.txt` and `note.ts`.
+These pages cover the rest:
+
+- [Install](https://submilli.ai/docs/install/) and [Run the server](https://submilli.ai/docs/server/run-the-server/)
+- [Register a Blueprint](https://submilli.ai/docs/server/register-a-blueprint/), with its secrets and Packages
+- [Start a Blueprint](https://submilli.ai/docs/blueprints/start-a-blueprint/) and the [Blueprint file reference](https://submilli.ai/docs/reference/blueprint-file/)
+- Deploying: [Linux](https://submilli.ai/docs/server/deploy-on-linux/), [Compose](https://submilli.ai/docs/server/deploy-with-compose/), [Kubernetes](https://submilli.ai/docs/server/deploy-on-kubernetes/)
+- The [HTTP API reference](https://submilli.ai/docs/reference/http-api), which lists every endpoint this package calls
 
 For development, `scripts/test-server.sh` starts a throwaway server with the `research`
 Blueprint in `.submilli-test/` at the repository root.
