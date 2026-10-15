@@ -19,7 +19,7 @@ First release, for submilli-server 0.4.1 and the `submilli` SDK 0.1.
   replaced, and the model is told. A thread whose variables changed is refused.
 - `aclose_thread` to end a thread's session.
 - `hide_filesystem_tools` to remove deepagents' own file and shell tools.
-- `expose_tools`: programs call the application's LangChain tools as `@tools`,
+- `ptc` (programmatic tool calling): programs call the application's LangChain tools as `@tools`,
   run through a `ToolNode` with the run's state and context.
-- `interrupt_on` for exposed tools: a person approves each call, with
+- `interrupt_on` for `ptc` tools: a person approves each call, with
   LangChain's human-in-the-loop request and decision shapes.

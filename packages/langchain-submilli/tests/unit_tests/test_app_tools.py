@@ -157,11 +157,13 @@ def test_exposed_tools_must_be_callable_by_name_once() -> None:
         return to
 
     with pytest.raises(ValueError, match="identifier"):
-        middleware(expose_tools=[dashed])
+        middleware(ptc=[dashed])
     with pytest.raises(ValueError, match="distinct"):
-        middleware(expose_tools=[send_email, send_email])
+        middleware(ptc=[send_email, send_email])
+    with pytest.raises(TypeError, match="not tool names"):
+        middleware(ptc=["send_email"])
     with pytest.raises(ValueError, match="not exposed"):
-        middleware(expose_tools=[send_email], interrupt_on={"query_orders": True})
+        middleware(ptc=[send_email], interrupt_on={"query_orders": True})
 
 
 async def test_the_session_declares_the_tools_and_logs_what_programs_cannot_see(
@@ -169,7 +171,7 @@ async def test_the_session_declares_the_tools_and_logs_what_programs_cannot_see(
 ) -> None:
     server.open_warnings = ["@tools: blueprint `research` grants no `tools.call`, so programs cannot see these tools"]
     with caplog.at_level(logging.WARNING):
-        await start(agent(calls_then_done(execute("plain")), middleware(expose_tools=[query_orders])))
+        await start(agent(calls_then_done(execute("plain")), middleware(ptc=[query_orders])))
 
     [opened] = server.calls("POST", "/v1/sessions")
     body = json.loads(opened.content)
@@ -179,7 +181,7 @@ async def test_the_session_declares_the_tools_and_logs_what_programs_cannot_see(
 
 async def test_the_execute_description_tells_the_model_about_tools(server: FakeServer) -> None:
     model = calls_then_done(execute("plain"))
-    await start(agent(model, middleware(expose_tools=[query_orders, send_email], interrupt_on={"send_email": True})))
+    await start(agent(model, middleware(ptc=[query_orders, send_email], interrupt_on={"send_email": True})))
     [described] = [tool for tool in model.bound[-1] if tool.name == "submilli__typescript__execute"]
     assert '`import tools from "@tools";`' in described.description
     assert "`query_orders`, `send_email`" in described.description
@@ -193,9 +195,7 @@ async def test_the_execute_description_tells_the_model_about_tools(server: FakeS
 
 async def test_a_program_call_runs_the_tool_with_the_runs_context_and_returns_its_value(server: FakeServer) -> None:
     server.programs["orders"] = [("query_orders", {"customer": "c_42"})]
-    result = await start(
-        agent(calls_then_done(execute("orders", id="toolu_1")), middleware(expose_tools=[query_orders]))
-    )
+    result = await start(agent(calls_then_done(execute("orders", id="toolu_1")), middleware(ptc=[query_orders])))
 
     assert ran == [("query_orders", {"customer": "c_42", "user": "u_ada"})]
     [resumed] = server.calls("POST", r"/v1/runs/.*/resume")
@@ -212,7 +212,7 @@ async def test_a_program_call_runs_the_tool_with_the_runs_context_and_returns_it
 
 async def test_a_tool_that_raises_fails_the_call_in_the_program(server: FakeServer) -> None:
     server.programs["boom"] = [("broken", {})]
-    result = await start(agent(calls_then_done(execute("boom")), middleware(expose_tools=[broken])))
+    result = await start(agent(calls_then_done(execute("boom")), middleware(ptc=[broken])))
 
     [resumed] = server.calls("POST", r"/v1/runs/.*/resume")
     [answer] = json.loads(resumed.content)["results"]
@@ -226,7 +226,7 @@ async def test_state_updates_of_called_tools_reach_the_agents_state(server: Fake
         ("write_note", {"path": "/a.md", "text": "A"}),
         ("write_note", {"path": "/b.md", "text": "B"}),
     ]
-    submilli = middleware(expose_tools=[write_note])
+    submilli = middleware(ptc=[write_note])
     graph = agent(calls_then_done(execute("notes")), submilli, state_schema=FilesState)
     result = await start(graph)
 
@@ -243,7 +243,7 @@ async def test_a_run_the_server_lost_is_reported_without_raising(server: FakeSer
         return original(run_id, body)
 
     server.resume = restart_then_resume  # type: ignore[method-assign]
-    result = await start(agent(calls_then_done(execute("orders")), middleware(expose_tools=[query_orders])))
+    result = await start(agent(calls_then_done(execute("orders")), middleware(ptc=[query_orders])))
 
     message = executed(result)
     assert json.loads(message.text)["error"]["kind"] == "run_lost"
@@ -252,7 +252,7 @@ async def test_a_run_the_server_lost_is_reported_without_raising(server: FakeSer
 
 
 async def test_a_changed_tool_catalog_opens_a_new_session(server: FakeServer) -> None:
-    graph = agent(calls_then_done(execute("a")), middleware(expose_tools=[query_orders]))
+    graph = agent(calls_then_done(execute("a")), middleware(ptc=[query_orders]))
     await start(graph)
     first = (await graph.aget_state(THREAD)).values["submilli_session"]
     assert first["tools"]
@@ -260,7 +260,7 @@ async def test_a_changed_tool_catalog_opens_a_new_session(server: FakeServer) ->
     # The same thread, served by a build that exposes another tool set.
     later = create_agent(
         model=calls_then_done(execute("b")),
-        middleware=[middleware(expose_tools=[query_orders, send_email])],
+        middleware=[middleware(ptc=[query_orders, send_email])],
         checkpointer=graph.checkpointer,
         context_schema=Context,
     )
@@ -275,7 +275,7 @@ async def test_a_changed_tool_catalog_opens_a_new_session(server: FakeServer) ->
 
 async def test_package_docs_include_the_sessions_tools(server: FakeServer) -> None:
     model = calls_then_done(call("submilli__typescript__packages__docs", {"name": "@tools"}))
-    result = await start(agent(model, middleware(expose_tools=[query_orders])))
+    result = await start(agent(model, middleware(ptc=[query_orders])))
 
     assert server.calls("GET", r"/v1/sessions/.*/packages/docs")
     assert "function query_orders" in executed(result).content
@@ -295,9 +295,7 @@ async def test_without_exposed_tools_discovery_stays_on_the_blueprint(server: Fa
 
 async def test_an_approved_call_runs_after_the_graph_resumes(server: FakeServer) -> None:
     server.programs["mail"] = [("send_email", {"to": "ada@example.com", "body": "hi"})]
-    graph = agent(
-        calls_then_done(execute("mail")), middleware(expose_tools=[send_email], interrupt_on={"send_email": True})
-    )
+    graph = agent(calls_then_done(execute("mail")), middleware(ptc=[send_email], interrupt_on={"send_email": True}))
 
     paused = await start(graph)
     [pending] = paused["__interrupt__"]
@@ -317,9 +315,7 @@ async def test_an_approved_call_runs_after_the_graph_resumes(server: FakeServer)
 
 async def test_a_rejected_call_is_a_denial_in_the_program(server: FakeServer) -> None:
     server.programs["mail"] = [("send_email", {"to": "ada@example.com", "body": "hi"})]
-    graph = agent(
-        calls_then_done(execute("mail")), middleware(expose_tools=[send_email], interrupt_on={"send_email": True})
-    )
+    graph = agent(calls_then_done(execute("mail")), middleware(ptc=[send_email], interrupt_on={"send_email": True}))
     await start(graph)
     result = await decide(graph, {"type": "reject", "message": "Not to customers."})
 
@@ -332,9 +328,7 @@ async def test_a_rejected_call_is_a_denial_in_the_program(server: FakeServer) ->
 
 async def test_an_edit_runs_the_edited_arguments_and_respond_answers_for_the_tool(server: FakeServer) -> None:
     server.programs["mail"] = [("send_email", {"to": "a@x", "body": "hi"}), ("send_email", {"to": "b@x", "body": "yo"})]
-    submilli = middleware(
-        expose_tools=[send_email], interrupt_on={"send_email": {"allowed_decisions": ["edit", "respond"]}}
-    )
+    submilli = middleware(ptc=[send_email], interrupt_on={"send_email": {"allowed_decisions": ["edit", "respond"]}})
     graph = agent(calls_then_done(execute("mail")), submilli)
     await start(graph)
     await decide(
@@ -354,7 +348,7 @@ async def test_two_approvals_in_one_program_each_get_their_own_decision(server: 
         ("query_orders", {"customer": "c_1"}),
         ("send_email", {"to": "second@x", "body": "2"}),
     ]
-    submilli = middleware(expose_tools=[send_email, query_orders], interrupt_on={"send_email": True})
+    submilli = middleware(ptc=[send_email, query_orders], interrupt_on={"send_email": True})
     graph = agent(calls_then_done(execute("mail")), submilli)
 
     await start(graph)
@@ -377,7 +371,7 @@ async def test_two_approvals_in_one_program_each_get_their_own_decision(server: 
 
 async def test_a_call_whose_approval_cannot_be_matched_is_refused_not_guessed(server: FakeServer) -> None:
     server.programs["mail"] = [("send_email", {"to": "a@x", "body": "1"}), ("send_email", {"to": "b@x", "body": "2"})]
-    submilli = middleware(expose_tools=[send_email], interrupt_on={"send_email": True})
+    submilli = middleware(ptc=[send_email], interrupt_on={"send_email": True})
     graph = agent(calls_then_done(execute("mail")), submilli)
     await start(graph)
     await decide(graph, {"type": "approve"})
@@ -395,7 +389,7 @@ async def test_a_call_whose_approval_cannot_be_matched_is_refused_not_guessed(se
 async def test_when_decides_which_calls_need_approval(server: FakeServer) -> None:
     server.programs["mail"] = [("send_email", {"to": "me@corp", "body": "1"})]
     submilli = middleware(
-        expose_tools=[send_email],
+        ptc=[send_email],
         interrupt_on={
             "send_email": {
                 "allowed_decisions": ["approve", "reject"],
@@ -410,7 +404,7 @@ async def test_when_decides_which_calls_need_approval(server: FakeServer) -> Non
 
 async def test_a_pydantic_result_reaches_the_program_as_an_object(server: FakeServer) -> None:
     server.programs["order"] = [("get_order", {"order": "o_1"})]
-    await start(agent(calls_then_done(execute("order")), middleware(expose_tools=[get_order])))
+    await start(agent(calls_then_done(execute("order")), middleware(ptc=[get_order])))
 
     [resumed] = server.calls("POST", r"/v1/runs/.*/resume")
     assert json.loads(resumed.content)["results"][0]["value"] == {"id": "o_1", "lines": []}

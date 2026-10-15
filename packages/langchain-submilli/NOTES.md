@@ -2,7 +2,7 @@
 
 These are the decisions the brief left open, and what in submilli-runtime got in the way. The
 package was built and tested against submilli-runtime at `60f2a857` (server 0.4.0, built from
-source; the installed 0.3.0 binary was not used). Application tools (`expose_tools`) were added
+source; the installed 0.3.0 binary was not used). Application tools (`ptc`, first named `expose_tools`) were added
 for, and tested against, the published 0.4.1 release binaries, which also pass the restart and
 expiry tests. The HTTP client now lives in its own package, `submilli`
 (`packages/submilli` in the same workspace), described below. It was also tested against deepagents 0.7.24, langchain 1.4.5, langchain-core
@@ -112,13 +112,17 @@ expiry tests. The HTTP client now lives in its own package, `submilli`
   there too.
 - The flag also hides any tool of the app's own with one of those names, `execute` included.
 
-### Application tools (`expose_tools`)
+### Application tools (`ptc`)
 
 Server 0.4.1 shipped SUB-1694: a session declares `tools`, programs call them through `@tools`,
 each call suspends the run in memory, and the harness answers with `POST /v1/runs/{id}/resume`.
 
-- **The option is `expose_tools`, not `tools`.** `AgentMiddleware.tools` is already the list of
-  tools a middleware gives the model. Exposed tools are not given to the model.
+- **The option is `ptc`, not `tools`.** `AgentMiddleware.tools` is already the list of
+  tools a middleware gives the model. These tools are not given to the model. It was first
+  `expose_tools`; it was renamed before the first release to match `langchain-quickjs`'s
+  `CodeInterpreterMiddleware(ptc=...)`. Unlike there, it takes tool objects only, not names:
+  the session declares its tools when it opens, from the execute tool, which does not see the
+  agent's tool list.
 - **Declaring.** The input schema is `tool.tool_call_schema`, so injected arguments
   (`ToolRuntime`, `InjectedState`, `InjectedStore`) are not part of it. The output schema comes
   from the function's return annotation through a pydantic `TypeAdapter`. It is `string` when

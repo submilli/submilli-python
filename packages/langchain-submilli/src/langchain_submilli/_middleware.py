@@ -119,13 +119,13 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
             Submilli. It does not reach deepagents' subagents.
         client: A `submilli.AsyncSubmilli` to use instead of building one
             from `server` and `token`.
-        expose_tools: The application's own tools, which programs may call
-            as the `@tools` Package: LangChain tools, or functions to wrap as
-            tools. Each call runs here, through a `ToolNode` with the run's
+        ptc: Programmatic tool calling: the application's own tools, which
+            programs may call as the `@tools` Package. LangChain tools, or
+            functions to wrap as tools. Each call runs here, through a `ToolNode` with the run's
             state and context, and its result goes back to the program. The
             Blueprint must grant `tools.call`. The model is not given these
             tools directly; pass them to the agent as well for that.
-        interrupt_on: Which exposed tools need a person's approval when a
+        interrupt_on: Which `ptc` tools need a person's approval when a
             program calls them, as for `HumanInTheLoopMiddleware`: `True`, or
             an `InterruptOnConfig`. The graph is interrupted with a
             `HITLRequest` of one action; resume it with a `HITLResponse` of one
@@ -156,7 +156,7 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
         *,
         hide_filesystem_tools: bool = False,
         client: AsyncSubmilli | None = None,
-        expose_tools: Sequence[BaseTool | Callable[..., Any]] | None = None,
+        ptc: Sequence[BaseTool | Callable[..., Any]] | None = None,
         interrupt_on: Mapping[str, bool | InterruptOnConfig] | None = None,
     ) -> None:
         super().__init__()
@@ -165,7 +165,7 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
         self._variables = _mapper(variables, user_id_variables)
         self._secrets = _mapper(secrets, no_secrets)
         self.hide_filesystem_tools: bool = hide_filesystem_tools
-        self._exposed = ExposedTools(as_tools(expose_tools), interrupt_on)
+        self._exposed = ExposedTools(as_tools(ptc), interrupt_on)
         self._described = False
         self._describe_lock: asyncio.Lock | None = None
         # Sessions opened to replace an ended one, by the ended one's id, so that

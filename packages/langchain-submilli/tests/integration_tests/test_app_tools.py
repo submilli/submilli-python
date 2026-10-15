@@ -82,7 +82,7 @@ def agent(managed: ManagedServer, *turns: Any, interrupt_on: dict[str, Any] | No
         "shop",
         server=managed.url,
         token=managed.token,
-        expose_tools=[query_orders, send_email, broken, refund],
+        ptc=[query_orders, send_email, broken, refund],
         interrupt_on=interrupt_on,
     )
     return create_agent(model=scripted(*turns), middleware=[submilli], checkpointer=InMemorySaver())

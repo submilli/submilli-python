@@ -435,7 +435,10 @@ def _value(message: ToolMessage, *, text: bool) -> Any:
 
 
 def as_tools(tools: Sequence[BaseTool | Callable[..., Any]] | None) -> list[BaseTool]:
-    """Exposed tools as `BaseTool`s; plain functions are wrapped as LangChain does for an agent."""
+    """The `ptc` tools as `BaseTool`s; plain functions are wrapped as LangChain does for an agent."""
     from langchain_core.tools import tool as make_tool
 
+    names = [str(item) for item in tools or [] if isinstance(item, str)]
+    if names:
+        raise TypeError(f"ptc takes tools, not tool names; pass the tool objects for: {', '.join(names)}")
     return [item if isinstance(item, BaseTool) else make_tool(item) for item in tools or []]

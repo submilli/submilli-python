@@ -103,7 +103,9 @@ your own tools, see [Your tools in programs](#your-tools-in-programs).
 ## Your tools in programs
 
 With submilli-server 0.4.1 or later, programs can call your application's own tools, such as a
-LangChain `@tool` that queries your database or sends an email. Pass them as `expose_tools`:
+LangChain `@tool` that queries your database or sends an email. This is programmatic tool
+calling (PTC), and the option has the same name as in `langchain-quickjs`. Pass the tools as
+`ptc`:
 
 ```python
 from typing import TypedDict
@@ -130,7 +132,7 @@ def send_email(to: str, body: str) -> str:
 
 middleware = SubmilliMiddleware(
     blueprint="shop",
-    expose_tools=[query_orders, send_email],
+    ptc=[query_orders, send_email],
     interrupt_on={"send_email": True},
 )
 ```
@@ -216,7 +218,7 @@ SubmilliMiddleware(
     secrets=None,  # default: none
     hide_filesystem_tools=False,
     client=None,  # a submilli.AsyncSubmilli, instead of server and token
-    expose_tools=None,  # your tools, for programs to call as @tools
+    ptc=None,  # your tools, for programs to call as @tools (programmatic tool calling)
     interrupt_on=None,  # which of them need approval, as for HumanInTheLoopMiddleware
 )
 ```
@@ -275,16 +277,21 @@ Blueprint in `.submilli-test/` at the repository root.
 ## Compared with `CodeInterpreterMiddleware`
 
 [`CodeInterpreterMiddleware`](https://docs.langchain.com/oss/python/deepagents/interpreters)
-from `langchain-quickjs` fills the same slot. It adds a code tool to a deep agent, and each
-thread keeps its own state.
+from `langchain-quickjs` fills the same slot. It adds a code tool to a deep agent, each thread
+keeps its own state, and programs call the agent's tools through programmatic tool calling
+(PTC). Both middlewares take those tools as `ptc=[...]`, and programs call them as
+`tools.<name>(...)`.
 
 | | `CodeInterpreterMiddleware` | `SubmilliMiddleware` |
 | --- | --- | --- |
 | Language | JavaScript | A strict TypeScript subset, compiled to WebAssembly |
 | Where code runs | QuickJS, in the agent's process | submilli-server, a separate process |
-| Reaching the outside | Agent tools exposed through PTC | Packages and capabilities the Blueprint grants: files, HTTP, secrets, model calls; and the tools you expose |
-| Permission boundary | The PTC allowlist | The Blueprint's policy, checked on each capability call, exposed tools included |
-| Approvals | PTC calls skip `interrupt_on` | `interrupt_on` for the whole program, and per call to an exposed tool |
+| Reaching the outside | Only the `ptc` tools | Packages and capabilities the Blueprint grants: files, HTTP, secrets, model calls; and the `ptc` tools |
+| `ptc` tools | Called as `await tools.camelCaseName(...)`, declared as returning `Promise<string>` | Called as `tools.name(...)`, typed from each tool's argument schema and return annotation |
+| Permission boundary | The `ptc` allowlist | The Blueprint's policy, checked on each capability call, `ptc` tools included |
+| Approvals | `interrupt_on` for the whole program; `ptc` calls are not approved | `interrupt_on` for the whole program, and for each call to a `ptc` tool |
+| Subagents | `await task({...})` from a program | Not yet; planned for the next version |
+| State across calls | JavaScript globals persist within a thread | Each program starts fresh; files and session state last as long as the session, when the Blueprint grants them |
 | Per-user binding | — | Variables and secrets from the run's context, fixed per session |
 | Retries | — | `Idempotency-Key` per tool call; a repeated call replays |
 | Record of runs | — | `execution_id` per run, in the server's audit trail |
