@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "submilli"
-version = "0.1.0"
+version = "0.1.1"
 description = "The Python SDK for submilli-server: run TypeScript programs under a Blueprint's policy, from any Python harness."
 readme = "README.md"
 license = "Apache-2.0"
