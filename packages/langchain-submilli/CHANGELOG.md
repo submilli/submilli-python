@@ -6,7 +6,7 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0]
+## [0.1.0] - 2026-10-15
 
 First release, for submilli-server 0.4.1 and the `submilli` SDK 0.1.
 
