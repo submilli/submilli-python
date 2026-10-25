@@ -4,7 +4,7 @@ All notable changes to this project are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.2] - 2026-10-25
 
 ### Fixed
 
@@ -14,8 +14,9 @@ All notable changes to this project are recorded here. The format follows
   (`stuck`, `cancelled`, `aborted`, `indeterminate`, `expired`, or a state the
   SDK does not know) reaches the model as an error result with the run's status
   and reason, as a lost run does, instead of an empty result. The artifact's
-  `run_status` names the state. A queued run is waited for. Needs the next
-  `submilli` release, which adds `RunStateError`.
+  `run_status` names the state. A queued run is waited for. Requires
+  `submilli>=0.1.2`, which adds `RunStateError` and prevents duplicate tool
+  execution when recovery exposes an uncommitted call again.
 
 ## [0.1.1] - 2026-10-15
 

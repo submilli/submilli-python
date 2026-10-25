@@ -243,7 +243,7 @@ change that spans both, such as application tools, is one pull request.
 - **Names.** Some names changed: `IdempotencyRefusedError` is `submilli.IdempotencyError`, and
   `SubmilliHTTPError` is `submilli.APIStatusError` with a subclass for each status. The
   middleware no longer re-exports client types.
-- **The dependency.** `submilli>=0.1.0,<0.2` on PyPI. In the workspace,
+- **The dependency.** `submilli>=0.1.2,<0.2` on PyPI. In the workspace,
   `[tool.uv.sources]` resolves it to `packages/submilli`. The published wheel names the PyPI
   requirement, which CI checks.
 

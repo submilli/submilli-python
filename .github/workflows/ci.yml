@@ -134,4 +134,4 @@ jobs:
             python -c "import langchain_submilli"
       - name: langchain-submilli depends on submilli from PyPI, not the workspace
         run: |
-          unzip -p dist/langchain_submilli-*.whl '*/METADATA' | grep -x 'Requires-Dist: submilli<0.2,>=0.1.0'
+          unzip -p dist/langchain_submilli-*.whl '*/METADATA' | grep -x 'Requires-Dist: submilli<0.2,>=0.1.2'
