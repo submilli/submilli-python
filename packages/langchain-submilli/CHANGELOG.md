@@ -6,6 +6,15 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- On a server with durable execution, a run that stops without a result
+  (`stuck`, `cancelled`, `aborted`, `indeterminate`, `expired`, or a state the
+  SDK does not know) reaches the model as an error result with the run's status
+  and reason, as a lost run does, instead of an empty result. The artifact's
+  `run_status` names the state. A queued run is waited for. Needs the next
+  `submilli` release, which adds `RunStateError`.
+
 ## [0.1.1] - 2026-10-15
 
 ### Changed

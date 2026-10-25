@@ -111,6 +111,10 @@ else:
     print(result.result, result.console)
 ```
 
+**Durable runs.** On a server with `durable_execution`, an execute still queued or working after
+the server's wait answers `RunningRun`, which `sessions.run` and `runs.complete` poll. A run that
+stops without a result, such as one that is `stuck` or `cancelled`, raises `RunStateError`.
+
 **Idempotency.** Pass an `idempotency_key` with every execute that may be retried. When the
 same request reaches the server twice, the program runs once and the retry gets the recorded
 result. `idempotency_key(call_id)` turns any id, such as a model's tool call id, into a key the
@@ -193,6 +197,7 @@ Every error is a `SubmilliError`:
 | `SessionRequiresSecretsError` | The server asks for the session's harness secrets again. `rebind` them; `.required` names them |
 | `IdempotencyError` | The server refused the key and ran nothing. `.code` says why |
 | `UnknownRunError` | The server no longer holds a suspended run |
+| `RunStateError` | The run has no result to return: it is `stuck`, `cancelled`, `aborted` or `indeterminate`, its result expired, or the SDK doesn't know its status. `.status` and `.reason` say which |
 | `RunNotSuspendedError`, `UnknownCallError` | A resume that no longer applies. `runs.complete` handles these |
 | `UnknownBlueprintError` | No Blueprint of that name |
 | `BadRequestError`, `ForbiddenError`, `NotFoundError`, `ConflictError`, `ServiceUnavailableError`, `InternalServerError` | Other refusals, by status |

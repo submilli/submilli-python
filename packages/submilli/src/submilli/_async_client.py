@@ -171,7 +171,10 @@ class AsyncSessions:
 
         In a session with application tools a run may answer `SuspendedRun`;
         `run` answers its calls for you. With an `idempotency_key`, a repeated
-        request answers the same run instead of running the program again.
+        request answers the same run instead of running the program again. On a
+        server with `durable_execution`, a run still queued or working after the
+        server's wait answers `RunningRun`, and a run with no result to return
+        raises `RunStateError`.
         """
         return b.read_run_state(await self._client._send(b.execute(session_id, code, idempotency_key)))
 
@@ -187,7 +190,8 @@ class AsyncSessions:
 
         An exception from `on_tool_call` propagates and leaves the run waiting
         on the server. Executing again with the same `idempotency_key` picks it
-        up at the call it waits on.
+        up at the call it waits on. Raises `RunStateError` when the run has no
+        result to return, such as a durable run that is `stuck`.
         """
         state = await self.execute(session_id, code, idempotency_key=idempotency_key)
         return await self._client.runs.complete(state, on_tool_call=on_tool_call)
@@ -223,12 +227,17 @@ class AsyncRuns:
         """`POST /v1/runs/{id}/resume`: answer the run's pending calls, then wait for its next state.
 
         Answering a call twice changes nothing. Raises `UnknownRunError`,
-        `RunNotSuspendedError` and `UnknownCallError`.
+        `RunNotSuspendedError` and `UnknownCallError`, and `RunStateError` for
+        a run with no result to return.
         """
         return b.read_run_state(await self._client._send(b.resume(run_id, results)))
 
     async def retrieve(self, run_id: str) -> RunState:
-        """`GET /v1/runs/{id}`: the run's state now. Raises `UnknownRunError`."""
+        """`GET /v1/runs/{id}`: the run's state now.
+
+        Raises `UnknownRunError`, and `RunStateError` for a run with no result
+        to return, such as a durable run that is `stuck`.
+        """
         return b.read_run_state(await self._client._send(b.retrieve_run(run_id)))
 
     async def complete(
@@ -242,8 +251,10 @@ class AsyncRuns:
         """Drive a run from `state` until it finishes.
 
         Each pending call goes to `on_tool_call`, sync or async, and its
-        `ToolResult` goes back with `resume`. A run that is `running` is polled.
-        Raises `UnknownRunError` when the server lost the run, as after a restart.
+        `ToolResult` goes back with `resume`. A run that is `running` or
+        `queued` is polled. Raises `UnknownRunError` when the server lost the
+        run, as after a restart, and `RunStateError` when the run has no result
+        to return, such as a durable run that is `stuck` or `cancelled`.
         """
         delay = poll_interval
         while not isinstance(state, ExecuteResult):

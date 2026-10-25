@@ -7,6 +7,7 @@ import logging
 from collections.abc import Iterator
 from typing import Annotated, Any, TypedDict, cast
 
+import httpx
 import pytest
 import respx
 from langchain.agents import AgentState, create_agent
@@ -249,6 +250,26 @@ async def test_a_run_the_server_lost_is_reported_without_raising(server: FakeSer
     assert json.loads(message.text)["error"]["kind"] == "run_lost"
     assert message.status == "error"
     assert message.artifact["refusal"] == "unknown_run"
+
+
+async def test_a_run_that_stops_while_waiting_on_a_tool_is_reported_without_raising(server: FakeServer) -> None:
+    server.programs["orders"] = [("query_orders", {"customer": "c_42"})]
+
+    def close_session(run_id: str, body: dict[str, Any]) -> httpx.Response:
+        # A durable server answers a resume of a cancelled run with its view.
+        view = {"execution_id": run_id, "session_id": "s", "status": "cancelled", "reason": "session_closed"}
+        return httpx.Response(200, json={**view, "durable": True, "revision": 4})
+
+    server.resume = close_session  # type: ignore[method-assign]
+    result = await start(agent(calls_then_done(execute("orders")), middleware(ptc=[query_orders])))
+
+    message = executed(result)
+    error = json.loads(message.text)["error"]
+    assert (error["kind"], error["reason"]) == ("run_cancelled", "session_closed")
+    assert message.status == "error"
+    assert message.artifact["run_status"] == "cancelled"
+    [record] = message.artifact["tool_calls"]
+    assert record["tool"] == "query_orders"
 
 
 async def test_a_changed_tool_catalog_opens_a_new_session(server: FakeServer) -> None:

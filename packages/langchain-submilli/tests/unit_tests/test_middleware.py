@@ -249,6 +249,63 @@ async def test_incomplete_tells_the_model_to_check_before_retrying(server: FakeS
     assert "Check what it would have changed" in body["error"]["message"]
 
 
+def lifecycle(status: str, reason: str | None = None, **extra: Any) -> dict[str, Any]:
+    """A durable run's lifecycle view, as submilli-server answers it."""
+    return {
+        "execution_id": "run-1",
+        "status": status,
+        "reason": reason,
+        "durable": True,
+        "revision": 2,
+        "attempt": 1,
+        "admission_order": 1,
+        "created_at_unix_ms": 1_761_000_000_000,
+        "completed_at_unix_ms": None,
+        **extra,
+    }
+
+
+@pytest.mark.parametrize(
+    ("status", "reason", "kind", "phrase"),
+    [
+        ("stuck", "credentials_unavailable", "run_stuck", "until an operator recovers it"),
+        ("cancelled", "session_closed", "run_cancelled", "its session was closed"),
+        ("aborted", "never_dispatched", "run_aborted", "nothing ran"),
+        ("indeterminate", "interrupted_without_history", "run_indeterminate", "some, all, or none"),
+        ("expired", None, "run_result_unavailable", "no longer keeps its result"),
+        ("completed", None, "run_result_unavailable", "no longer keeps its result"),
+        ("paused", "operator", "run_state_unknown", "does not know"),
+    ],
+)
+async def test_a_durable_run_without_a_result_is_reported_not_raised(
+    server: FakeServer, status: str, reason: str | None, kind: str, phrase: str
+) -> None:
+    server.durable_next.append(lifecycle(status, reason))
+    result = await run(agent(calls_then_done(execute("code")), middleware()))
+
+    message = tool_message(result)
+    assert message.status == "error"
+    error = content(message)["error"]
+    assert (error["kind"], error["status"], error.get("reason")) == (kind, status, reason)
+    assert phrase in error["message"]
+    assert content(message)["result"] is None
+    assert message.artifact["execution_id"] == "run-1"
+    assert message.artifact["run_status"] == status
+    assert result["messages"][-1].content == "done"
+
+
+async def test_a_queued_durable_run_is_waited_for(server: FakeServer) -> None:
+    server.durable_next.append(lifecycle("queued"))
+    retained = {"status": "finished", "execution_id": "run-1", "session_id": "s", "result": "42", "console": []}
+    server.views["run-1"] = [lifecycle("running"), lifecycle("completed", response={**retained, "error": None})]
+    result = await run(agent(calls_then_done(execute("code")), middleware()))
+
+    message = tool_message(result)
+    assert content(message) == {"result": "42", "console": [], "error": None, "denied": False}
+    assert message.status == "success"
+    assert len(server.calls("GET", "/v1/runs/run-1")) == 2
+
+
 async def test_the_same_tool_call_replays(server: FakeServer) -> None:
     submilli = middleware()
     graph = agent(
