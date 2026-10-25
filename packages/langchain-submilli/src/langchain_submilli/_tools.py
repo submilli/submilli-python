@@ -154,6 +154,10 @@ IDEMPOTENCY_MESSAGES = {
         "the program rather than risk running it twice. Trying again later may work."
     ),
     "idempotency_key_invalid": "Nothing ran. The server refused this call's idempotency key.",
+    "idempotency_response_expired": (
+        "Nothing new ran. The earlier program finished, but the server no longer keeps its result. "
+        "Check its effects before running anything that repeats it; changing the key would run it again."
+    ),
 }
 
 

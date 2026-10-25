@@ -227,6 +227,7 @@ async def test_lost_secrets_are_sent_again_with_rebind(server: FakeServer) -> No
     [
         (409, "idempotency_conflict", "different code"),
         (409, "idempotency_incomplete", "side effects are unknown"),
+        (409, "idempotency_response_expired", "no longer keeps its result"),
         (503, "idempotency_in_progress", "still running"),
         (503, "idempotency_unavailable", "could not read or write"),
     ],

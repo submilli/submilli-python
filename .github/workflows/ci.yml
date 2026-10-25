@@ -85,10 +85,41 @@ jobs:
           mv submilli-server-x86_64-unknown-linux-musl submilli-server
           chmod +x submilli-server
       - run: uv sync --all-packages --all-groups --locked
-      - run: uv run pytest ${{ matrix.tests }}
+      - run: uv run pytest ${{ matrix.tests }} -m 'not durable'
         working-directory: packages/${{ matrix.package }}
         env:
           SUBMILLI_BIN: ${{ github.workspace }}/.submilli-bin
+
+  durable-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: actions/checkout@v7
+        with:
+          repository: submilli/submilli-runtime
+          # Durable callbacks landed after v0.4.3. Pin the tested upstream
+          # contract until a release containing them is available.
+          ref: 5f67954152a8fa812f64ffc9cb1d17cd4ccd82a8
+          path: runtime
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - name: Build upstream submilli-server with durable callbacks
+        run: cargo build --release -p submilli-server
+        working-directory: runtime
+        env:
+          CARGO_BUILD_JOBS: "2"
+      - run: uv sync --all-packages --all-groups --locked
+      - name: SDK durable execution and crash recovery
+        run: uv run pytest tests/integration/test_durable.py
+        working-directory: packages/submilli
+        env:
+          SUBMILLI_BIN: ${{ github.workspace }}/runtime/target/release
+      - name: LangChain durable tools and approvals
+        run: uv run pytest tests/integration_tests/test_durable.py
+        working-directory: packages/langchain-submilli
+        env:
+          SUBMILLI_BIN: ${{ github.workspace }}/runtime/target/release
 
   build:
     runs-on: ubuntu-latest

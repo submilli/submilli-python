@@ -150,9 +150,15 @@ Integration tests start submilli-server from `$SUBMILLI_BIN` or `PATH`. A releas
 live in the ignored `.submilli-bin/` directory:
 
 ```sh
-SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration         # submilli
-SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration_tests   # langchain-submilli
+SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration -m 'not durable'         # submilli
+SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration_tests -m 'not durable'   # langchain-submilli
 ```
+
+Durable integration tests require an upstream runtime build containing durable callbacks
+(tested at `5f67954152a8fa812f64ffc9cb1d17cd4ccd82a8`, after v0.4.3). Set `SUBMILLI_BIN`
+to its binary directory and run the same commands with `-m durable`. CI builds that pinned
+revision separately and exercises queued/running HTTP responses, crash recovery, duplicate
+resumes, concurrent tools, and approvals after restart. Each test starts an isolated server.
 
 Some `langchain-submilli` integration tests also need the `research` Blueprint.
 `packages/langchain-submilli/scripts/test-server.sh` starts a suitable server.

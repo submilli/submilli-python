@@ -8,6 +8,8 @@ All notable changes to this project are recorded here. The format follows
 
 ### Fixed
 
+- Expired idempotency responses reach the model as errors that advise checking
+  effects before repeating the program.
 - On a server with durable execution, a run that stops without a result
   (`stuck`, `cancelled`, `aborted`, `indeterminate`, `expired`, or a state the
   SDK does not know) reaches the model as an error result with the run's status

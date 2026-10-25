@@ -248,6 +248,9 @@ class Runs:
         to return, such as a durable run that is `stuck` or `cancelled`.
         """
         delay = poll_interval
+        # Recovery can expose an unanswered call again if a resume was delivered
+        # but not committed. Resend its answer without repeating the host effect.
+        answered: dict[str, tuple[PendingCall, ToolResult]] = {}
         while not isinstance(state, ExecuteResult):
             if isinstance(state, RunningRun):
                 time.sleep(delay)
@@ -261,9 +264,16 @@ class Runs:
                 )
             results = []
             for call in state.calls:
+                previous = answered.get(call.call_id)
+                if previous is not None:
+                    if previous[0] != call:
+                        raise SubmilliError(f"run changed the tool or arguments of call {call.call_id!r}")
+                    results.append(previous[1])
+                    continue
                 result = on_tool_call(call)
                 if not isinstance(result, ToolResult) or result.call_id != call.call_id:
                     raise SubmilliError(f"on_tool_call must return a ToolResult for call {call.call_id!r}")
+                answered[call.call_id] = (call, result)
                 results.append(result)
             try:
                 state = self.resume(state.execution_id, results)

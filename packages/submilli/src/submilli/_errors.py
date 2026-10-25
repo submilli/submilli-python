@@ -183,7 +183,8 @@ class IdempotencyError(APIStatusError):
     `idempotency_incomplete` (an earlier attempt never recorded an outcome, so
     its effects are unknown), `idempotency_in_progress` (an earlier attempt is
     still running), `idempotency_unavailable` (the record could not be read or
-    written), or `idempotency_key_invalid`.
+    written), `idempotency_response_expired` (the earlier result is no longer
+    retained), or `idempotency_key_invalid`.
     """
 
     @property
@@ -198,6 +199,7 @@ IDEMPOTENCY_CODES = frozenset(
         "idempotency_in_progress",
         "idempotency_unavailable",
         "idempotency_key_invalid",
+        "idempotency_response_expired",
     }
 )
 

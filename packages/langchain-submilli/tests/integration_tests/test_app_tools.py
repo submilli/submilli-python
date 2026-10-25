@@ -24,6 +24,7 @@ pytestmark = pytest.mark.integration
 
 BLUEPRINT = """kind: blueprint
 name: shop
+vfs: none
 variables:
   userId:
     required: true

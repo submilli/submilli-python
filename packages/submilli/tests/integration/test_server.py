@@ -168,8 +168,10 @@ async def test_secrets_sealed_with_another_key_are_refused(managed: ManagedServe
     managed.stop()
     managed.rotate_store_key()
     managed.start()
-    with pytest.raises(ConflictError, match="cannot decrypt session secrets"):
+    with pytest.raises(ConflictError) as refused:
         await client.sessions.run(session.id, COUNTER)
+    assert refused.value.status_code == 409
+    assert "session secrets" in str(refused.value)
 
 
 async def test_discovery_and_one_off_runs(client: AsyncSubmilli) -> None:

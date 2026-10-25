@@ -20,6 +20,10 @@ All notable changes to this project are recorded here. The format follows
 
 ### Fixed
 
+- Recovery exposing the same uncommitted tool call during `runs.complete`
+  resends its cached answer instead of executing the Python tool again.
+- An expired idempotency response raises `IdempotencyError` with code
+  `idempotency_response_expired`.
 - Runs on a server with `durable_execution` no longer read as finished runs
   with no result. A `queued` run is a `RunningRun`, which `runs.complete` and
   `sessions.run` poll as they poll a `running` one. A `completed` run from
