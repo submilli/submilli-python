@@ -6,11 +6,13 @@ Refusals a caller can act on have their own subclass, which also derives from
 the status class (`UnknownSessionError` is a `NotFoundError`).
 
 A program that fails, or that the Blueprint denies, is not an error: it is an
-`ExecuteResult` whose `error` is set.
+`ExecuteResult` whose `error` is set. A run with no result to return, such as
+a durable run that is `stuck`, is a `RunStateError`.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -27,6 +29,7 @@ __all__ = [
     "InternalServerError",
     "NotFoundError",
     "RunNotSuspendedError",
+    "RunStateError",
     "ServiceUnavailableError",
     "SessionRequiresSecretsError",
     "SubmilliError",
@@ -129,6 +132,50 @@ class UnknownCallError(BadRequestError):
     """`400 unknown_call`: the run waits on another call."""
 
 
+# What each status without a result means, as servers with `durable_execution`
+# report them in a run's lifecycle view.
+_RUN_STATES = {
+    "stuck": "it stopped, and waits to be recovered with POST /v1/runs/{run}/recover",
+    "cancelled": "it was cancelled before it finished",
+    "aborted": "it ended before the program started",
+    "indeterminate": "it was interrupted, and its outcome is unknown",
+    "expired": "it finished, but the server no longer keeps its result",
+    "completed": "it finished, but the server keeps no result for it",
+}
+
+
+class RunStateError(SubmilliError):
+    """The server reports a run in a state with no result to return.
+
+    Servers with `durable_execution` report these: `stuck` (stopped, and held
+    for `POST /v1/runs/{id}/recover`), `cancelled` (its session closed),
+    `aborted` (it never started), `indeterminate` (interrupted, outcome
+    unknown), `expired` (its result is no longer kept), and `completed` without
+    a kept result. A status this SDK does not know raises it too.
+
+    Attributes:
+        execution_id: The run.
+        session_id: The session it ran in.
+        status: The run's `status`, such as `stuck`.
+        reason: Why, when the server says, such as `credentials_unavailable`.
+        body: The run as the server sent it, with lifecycle metadata such as `revision`.
+    """
+
+    def __init__(self, body: Mapping[str, Any]) -> None:
+        self.body: dict[str, Any] = dict(body)
+        self.execution_id: str = str(body.get("execution_id", ""))
+        self.session_id: str = str(body.get("session_id", ""))
+        self.status: str = str(body.get("status", ""))
+        reason = body.get("reason")
+        self.reason: str | None = reason if isinstance(reason, str) else None
+        meaning = _RUN_STATES.get(self.status, "this version of the SDK does not know that status")
+        because = f" ({self.reason})" if self.reason else ""
+        super().__init__(
+            f"run {self.execution_id} is {self.status}{because} and has no result to return: "
+            + meaning.format(run=self.execution_id)
+        )
+
+
 class IdempotencyError(APIStatusError):
     """The server refused an `Idempotency-Key`, and ran nothing.
 
@@ -136,7 +183,8 @@ class IdempotencyError(APIStatusError):
     `idempotency_incomplete` (an earlier attempt never recorded an outcome, so
     its effects are unknown), `idempotency_in_progress` (an earlier attempt is
     still running), `idempotency_unavailable` (the record could not be read or
-    written), or `idempotency_key_invalid`.
+    written), `idempotency_response_expired` (the earlier result is no longer
+    retained), or `idempotency_key_invalid`.
     """
 
     @property
@@ -151,6 +199,7 @@ IDEMPOTENCY_CODES = frozenset(
         "idempotency_in_progress",
         "idempotency_unavailable",
         "idempotency_key_invalid",
+        "idempotency_response_expired",
     }
 )
 
@@ -183,6 +232,9 @@ def status_error(response: httpx.Response) -> APIStatusError:
         return _BY_CODE[(response.status_code, code)](response.status_code, body)
     if response.status_code == 404 and code == "not_found" and "blueprint" in (_field(body, "message") or ""):
         return UnknownBlueprintError(response.status_code, body)
+    if response.status_code == 404 and body == "unknown run":
+        # `GET /v1/runs/{id}` answers a run it holds no record of in plain text.
+        return UnknownRunError(response.status_code, body)
     cls = _BY_STATUS.get(response.status_code)
     if cls is None:
         cls = InternalServerError if response.status_code >= 500 else APIStatusError

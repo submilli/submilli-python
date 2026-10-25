@@ -29,6 +29,7 @@ from submilli import (
     IdempotencyError,
     PendingCall,
     RunState,
+    RunStateError,
     SessionRequiresSecretsError,
     SubmilliError,
     ToolResult,
@@ -289,6 +290,9 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
             except IdempotencyError as error:
                 message = t.idempotency_message(error, tool_call_id=tool_call_id, session_id=session["id"])
                 return _with_session(message, session, stored)
+            except RunStateError as error:
+                message = t.run_state_message(error, tool_call_id=tool_call_id, session_id=session["id"], calls=[])
+                return _with_session(message, session, stored)
         calls: list[dict[str, Any]] = []
         updates: list[tuple[str, Any]] = []
         if not isinstance(result, ExecuteResult):
@@ -298,6 +302,9 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
                 message = t.lost_run_message(
                     tool_call_id=tool_call_id, execution_id=result.execution_id, session_id=session["id"], calls=calls
                 )
+                return _with_session(message, session, stored, updates)
+            except RunStateError as error:
+                message = t.run_state_message(error, tool_call_id=tool_call_id, session_id=session["id"], calls=calls)
                 return _with_session(message, session, stored, updates)
         message = t.execute_message(result, tool_call_id=tool_call_id, notice=notice, tool_calls=calls)
         return _with_session(message, session, stored, updates)

@@ -61,7 +61,7 @@ def _free_port() -> int:
 class ManagedServer:
     """A submilli-server in a temporary home, which a test may restart."""
 
-    def __init__(self, home: Path) -> None:
+    def __init__(self, home: Path, *, durable: bool = False) -> None:
         server_bin = _binary("submilli-server")
         if not server_bin:
             pytest.skip("submilli-server not found (set SUBMILLI_BIN)")
@@ -72,7 +72,10 @@ class ManagedServer:
         self.token = secrets.token_hex(32)
         self.process: subprocess.Popen[bytes] | None = None
         (home / "store.key").write_text(__import__("base64").b64encode(os.urandom(32)).decode())
-        (home / "server.yaml").write_text(f"secret_store:\n  key_file: {home / 'store.key'}\n")
+        config = f"secret_store:\n  key_file: {home / 'store.key'}\n"
+        if durable:
+            config += "durable_execution: true\nmax_durable_runs: 2\n"
+        (home / "server.yaml").write_text(config)
         self.env = {
             **os.environ,
             "SUBMILLI_HOME": str(home),
@@ -120,8 +123,8 @@ class ManagedServer:
 
 
 @pytest.fixture
-def managed(tmp_path: Path) -> Iterator[ManagedServer]:
-    server = ManagedServer(tmp_path)
+def managed(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[ManagedServer]:
+    server = ManagedServer(tmp_path, durable=getattr(request, "param", False))
     server.start()
     try:
         yield server

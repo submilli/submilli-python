@@ -72,6 +72,10 @@ class FakeServer:
     programs: dict[str, list[tuple[str, dict[str, Any]]]] = field(default_factory=dict)
     suspended: dict[str, Run] = field(default_factory=dict)
     open_warnings: list[str] = field(default_factory=list)
+    # As a server with `durable_execution` answers: the next executes answer
+    # these run views, and `GET /v1/runs/{id}` answers `views[id]`, in turn.
+    durable_next: list[dict[str, Any]] = field(default_factory=list)
+    views: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     def install(self, router: respx.MockRouter) -> None:
         router.route(host="submilli.test").mock(side_effect=self.handle)
@@ -93,6 +97,8 @@ class FakeServer:
         if match := re.fullmatch(r"/v1/runs/([^/]+)/resume", path):
             return self.resume(match[1], body)
         if match := re.fullmatch(r"/v1/runs/([^/]+)", path):
+            if self.views.get(match[1]):
+                return _json(200, self.views[match[1]].pop(0))
             run = self.suspended.get(match[1])
             if run is None:
                 return _json(404, {"error": "unknown_run", "execution_id": match[1], "message": "no such run"})
@@ -138,6 +144,8 @@ class FakeServer:
         if self.refuse_next:
             status, refusal = self.refuse_next.pop(0)
             return _json(status, {**refusal, "session_id": session_id})
+        if self.durable_next:
+            return _json(200, {**self.durable_next.pop(0), "session_id": session_id})
         code = body["code"]
         if key is not None and key in session.ledger:
             recorded_code, recorded = session.ledger[key]

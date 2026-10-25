@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, NotRequired, TypeAlias, TypedDict
 
+from submilli._errors import RunStateError
+
 __all__ = [
     "BlueprintPrompt",
     "CreatedSession",
@@ -77,7 +79,11 @@ class RunError:
 
 @dataclass(frozen=True, slots=True)
 class ExecuteResult:
-    """A finished run (`status: finished`)."""
+    """A finished run (`status: finished`).
+
+    On a server with `durable_execution`, `GET /v1/runs/{id}` reports a finished
+    run as `completed`, with this result in its `response`.
+    """
 
     execution_id: str
     session_id: str
@@ -133,18 +139,27 @@ class SuspendedRun:
 
 @dataclass(frozen=True, slots=True)
 class RunningRun:
-    """A run at work (`status: running`). Only `runs.retrieve` answers it."""
+    """A run at work (`status: running`), or waiting for its turn in the session (`status: queued`).
+
+    `runs.retrieve` answers it, and on a server with `durable_execution` so does
+    an execute still queued or working after the server's wait. `runs.complete`
+    polls it.
+    """
 
     execution_id: str
     session_id: str
-    status: Literal["running"] = "running"
+    status: Literal["queued", "running"] = "running"
 
 
 RunState: TypeAlias = ExecuteResult | SuspendedRun | RunningRun
 
 
 def run_state(body: dict[str, Any]) -> RunState:
-    """A run's state from an execute, resume or run body. A body without `status` is finished."""
+    """A run's state from an execute, resume or run body. A body without `status` is finished.
+
+    Raises `RunStateError` for a run with no result to return, such as a durable
+    run that is `stuck`, and for a status this SDK does not know.
+    """
     status = body.get("status", "finished")
     execution_id = str(body.get("execution_id", ""))
     session_id = str(body.get("session_id", ""))
@@ -161,7 +176,14 @@ def run_state(body: dict[str, Any]) -> RunState:
         return SuspendedRun(execution_id=execution_id, session_id=session_id, calls=calls)
     if status == "running":
         return RunningRun(execution_id=execution_id, session_id=session_id)
-    return ExecuteResult._from_json(body)
+    if status == "queued":
+        return RunningRun(execution_id=execution_id, session_id=session_id, status="queued")
+    if status == "finished":
+        return ExecuteResult._from_json(body)
+    response = body.get("response")
+    if status == "completed" and isinstance(response, dict) and response.get("status", "finished") == "finished":
+        return ExecuteResult._from_json({"execution_id": execution_id, "session_id": session_id, **response})
+    raise RunStateError(body)
 
 
 @dataclass(frozen=True, slots=True)

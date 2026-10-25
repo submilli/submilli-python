@@ -17,7 +17,7 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolArg, StructuredTool
 from pydantic import BaseModel, Field
 
-from submilli import BlueprintPrompt, ExecuteResult, IdempotencyError
+from submilli import BlueprintPrompt, ExecuteResult, IdempotencyError, RunStateError
 
 # The server's own names, as its MCP endpoint lists them.
 EXECUTE = "submilli__typescript__execute"
@@ -154,6 +154,10 @@ IDEMPOTENCY_MESSAGES = {
         "the program rather than risk running it twice. Trying again later may work."
     ),
     "idempotency_key_invalid": "Nothing ran. The server refused this call's idempotency key.",
+    "idempotency_response_expired": (
+        "Nothing new ran. The earlier program finished, but the server no longer keeps its result. "
+        "Check its effects before running anything that repeats it; changing the key would run it again."
+    ),
 }
 
 
@@ -212,6 +216,71 @@ def lost_run_message(
         "denied": False,
     }
     artifact: dict[str, Any] = {"execution_id": execution_id, "session_id": session_id, "refusal": "unknown_run"}
+    if calls:
+        artifact["tool_calls"] = calls
+    return ToolMessage(
+        content=json.dumps(content, ensure_ascii=False),
+        tool_call_id=tool_call_id,
+        name=EXECUTE,
+        artifact=artifact,
+        status="error",
+    )
+
+
+_UNKNOWN_EFFECTS = (
+    "Check what it would have changed before running anything that repeats it, and tell the user if you cannot tell."
+)
+_NO_RESULT = (
+    "run_result_unavailable",
+    "The run finished, but the server no longer keeps its result. Check its effects, or the last run, "
+    "before running anything that repeats it.",
+)
+
+# By run status: the error kind the model sees, and what it is told.
+RUN_STATE_MESSAGES = {
+    "stuck": (
+        "run_stuck",
+        "The run stopped before it finished, and the server holds it until an operator recovers it. Its "
+        "effects up to that point are unknown, and programs run after it in this session wait until it is "
+        "recovered. Tell the user before running anything else.",
+    ),
+    "cancelled": (
+        "run_cancelled",
+        "The run was cancelled before it finished, because its session was closed. Its effects up to that "
+        "point are unknown. " + _UNKNOWN_EFFECTS,
+    ),
+    "aborted": ("run_aborted", "The run was abandoned before the program started, so nothing ran."),
+    "indeterminate": (
+        "run_indeterminate",
+        "The run was interrupted, and the server cannot tell how far it got: it may have done some, all, "
+        "or none of its work. " + _UNKNOWN_EFFECTS,
+    ),
+    "expired": _NO_RESULT,
+    "completed": _NO_RESULT,
+}
+
+
+def run_state_message(
+    error: RunStateError, *, tool_call_id: str, session_id: str, calls: list[dict[str, Any]]
+) -> ToolMessage:
+    """A run the server reports with no result to return, such as a durable run that is `stuck`."""
+    kind, message = RUN_STATE_MESSAGES.get(
+        error.status,
+        (
+            "run_state_unknown",
+            f"The server reported the run as {error.status!r}, which this version of langchain-submilli "
+            "does not know, so its outcome is unknown. " + _UNKNOWN_EFFECTS,
+        ),
+    )
+    reported: dict[str, Any] = {"kind": kind, "message": message, "status": error.status}
+    if error.reason:
+        reported["reason"] = error.reason
+    content: dict[str, Any] = {"result": None, "console": [], "error": reported, "denied": False}
+    artifact: dict[str, Any] = {
+        "execution_id": error.execution_id,
+        "session_id": session_id,
+        "run_status": error.status,
+    }
     if calls:
         artifact["tool_calls"] = calls
     return ToolMessage(

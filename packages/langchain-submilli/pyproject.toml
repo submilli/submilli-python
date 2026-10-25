@@ -62,7 +62,10 @@ include = ["src", "tests", "README.md", "NOTES.md", "CHANGELOG.md", "LICENSE"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = ["integration: needs a running submilli-server with the research Blueprint"]
+markers = [
+    "integration: needs a running submilli-server with the research Blueprint",
+    "durable: requires a runtime build with durable execution and tool callbacks",
+]
 testpaths = ["tests/unit_tests"]
 pythonpath = ["."]
 

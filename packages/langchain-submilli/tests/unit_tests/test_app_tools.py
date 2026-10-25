@@ -7,6 +7,7 @@ import logging
 from collections.abc import Iterator
 from typing import Annotated, Any, TypedDict, cast
 
+import httpx
 import pytest
 import respx
 from langchain.agents import AgentState, create_agent
@@ -210,6 +211,57 @@ async def test_a_program_call_runs_the_tool_with_the_runs_context_and_returns_it
     ]
 
 
+@pytest.mark.parametrize("approval", [False, True])
+async def test_durable_queues_recovery_and_tool_approvals_wait_for_the_final_result(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch, approval: bool
+) -> None:
+    server.programs["mail"] = [("send_email", {"to": "a@x", "body": "hi"})]
+    original_execute = server.execute
+    original_resume = server.resume
+    started = False
+    interrupted = False
+
+    def queued_execute(session_id: str, body: dict[str, Any], key: str | None) -> httpx.Response:
+        nonlocal started
+        response = original_execute(session_id, body, key)
+        if not started:
+            started = True
+            pending = response.json()
+            run_id = pending["execution_id"]
+            queued = {"status": "queued", "execution_id": run_id, "session_id": session_id}
+            server.views[run_id] = [queued, {**queued, "status": "running"}, pending]
+            return httpx.Response(200, json=queued)
+        return response
+
+    def recovering_resume(run_id: str, body: dict[str, Any]) -> httpx.Response:
+        nonlocal interrupted
+        if not interrupted:
+            interrupted = True
+            # The answer has not committed; recovery exposes the same call.
+            return httpx.Response(409, json={"error": "run_not_suspended"})
+        done = original_resume(run_id, body).json()
+        working = {"status": "running", "execution_id": run_id, "session_id": done["session_id"]}
+        server.views[run_id] = [working, {**working, "status": "completed", "response": done}]
+        return httpx.Response(200, json=working)
+
+    monkeypatch.setattr(server, "execute", queued_execute)
+    monkeypatch.setattr(server, "resume", recovering_resume)
+    graph = agent(
+        calls_then_done(execute("mail")),
+        middleware(ptc=[send_email], interrupt_on={"send_email": True} if approval else None),
+    )
+    result = await start(graph)
+    if approval:
+        assert result["__interrupt__"] and ran == []
+        result = await decide(graph, {"type": "approve"})
+    assert ran == [("send_email", {"to": "a@x", "body": "hi"})]
+    message = executed(result)
+    assert message.status == "success"
+    assert json.loads(message.text)["result"] == json.dumps(["sent to a@x"])
+    assert len(message.artifact["tool_calls"]) == 1
+    assert server.total_runs() == 1
+
+
 async def test_a_tool_that_raises_fails_the_call_in_the_program(server: FakeServer) -> None:
     server.programs["boom"] = [("broken", {})]
     result = await start(agent(calls_then_done(execute("boom")), middleware(ptc=[broken])))
@@ -249,6 +301,26 @@ async def test_a_run_the_server_lost_is_reported_without_raising(server: FakeSer
     assert json.loads(message.text)["error"]["kind"] == "run_lost"
     assert message.status == "error"
     assert message.artifact["refusal"] == "unknown_run"
+
+
+async def test_a_run_that_stops_while_waiting_on_a_tool_is_reported_without_raising(server: FakeServer) -> None:
+    server.programs["orders"] = [("query_orders", {"customer": "c_42"})]
+
+    def close_session(run_id: str, body: dict[str, Any]) -> httpx.Response:
+        # A durable server answers a resume of a cancelled run with its view.
+        view = {"execution_id": run_id, "session_id": "s", "status": "cancelled", "reason": "session_closed"}
+        return httpx.Response(200, json={**view, "durable": True, "revision": 4})
+
+    server.resume = close_session  # type: ignore[method-assign]
+    result = await start(agent(calls_then_done(execute("orders")), middleware(ptc=[query_orders])))
+
+    message = executed(result)
+    error = json.loads(message.text)["error"]
+    assert (error["kind"], error["reason"]) == ("run_cancelled", "session_closed")
+    assert message.status == "error"
+    assert message.artifact["run_status"] == "cancelled"
+    [record] = message.artifact["tool_calls"]
+    assert record["tool"] == "query_orders"
 
 
 async def test_a_changed_tool_catalog_opens_a_new_session(server: FakeServer) -> None:

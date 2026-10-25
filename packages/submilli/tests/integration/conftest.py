@@ -40,7 +40,7 @@ def _free_port() -> int:
 class ManagedServer:
     """A submilli-server in a temporary home."""
 
-    def __init__(self, home: Path, binary: str) -> None:
+    def __init__(self, home: Path, binary: str, *, durable: bool = False) -> None:
         self.binary = binary
         self.home = home
         self.port = _free_port()
@@ -49,7 +49,10 @@ class ManagedServer:
         self.process: subprocess.Popen[bytes] | None = None
         self.log: IO[bytes] | None = None
         self.rotate_store_key()
-        (home / "server.yaml").write_text(f"secret_store:\n  key_file: {home / 'store.key'}\n")
+        config = f"secret_store:\n  key_file: {home / 'store.key'}\n"
+        if durable:
+            config += "durable_execution: true\nmax_durable_runs: 2\n"
+        (home / "server.yaml").write_text(config)
         self.env = {**os.environ, "SUBMILLI_HOME": str(home), "SUBMILLI_SERVER_TOKEN": self.token}
 
     def rotate_store_key(self) -> None:
@@ -86,6 +89,16 @@ class ManagedServer:
         self.stop()
         self.start()
 
+    def crash(self) -> None:
+        """Stop without draining or committing pending work."""
+        assert self.process is not None
+        self.process.kill()
+        self.process.wait(timeout=30)
+        self.process = None
+        if self.log is not None:
+            self.log.close()
+            self.log = None
+
     def apply(self, name: str, yaml: str) -> None:
         response = httpx.put(
             f"{self.url}/v1/blueprints/{name}",
@@ -97,11 +110,11 @@ class ManagedServer:
 
 
 @pytest.fixture
-def managed(tmp_path: Path) -> Iterator[ManagedServer]:
+def managed(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[ManagedServer]:
     binary = _binary()
     if binary is None:
         pytest.skip("submilli-server not found (set SUBMILLI_BIN)")
-    server = ManagedServer(tmp_path, binary)
+    server = ManagedServer(tmp_path, binary, durable=getattr(request, "param", False))
     server.start()
     try:
         yield server

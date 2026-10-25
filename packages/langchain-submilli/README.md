@@ -82,6 +82,9 @@ instructions for using them from the Submilli server.
   in-progress, or unavailable replays without silently rerunning the program.
 - When a session has ended, the middleware opens a replacement. If a restarted server asks for
   the session's secrets, it rebinds them once and retries.
+- On a server with durable execution, the middleware waits for a queued run. A run that stops
+  without a result, such as one that is stuck or cancelled, comes back to the model as an error
+  with the run's `status` and `reason`, and the artifact's `run_status` names it.
 - The execute tool message contains `result`, `console`, `error`, and `denied`. Its artifact
   contains `execution_id`, `session_id`, and any application-tool calls.
 

@@ -51,7 +51,10 @@ include = ["src", "tests", "README.md", "CHANGELOG.md", "LICENSE"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests/unit"]
-markers = ["integration: starts a submilli-server from $SUBMILLI_BIN or PATH"]
+markers = [
+    "integration: starts a submilli-server from $SUBMILLI_BIN or PATH",
+    "durable: requires a runtime build with durable execution and tool callbacks",
+]
 filterwarnings = ["error"]
 
 [tool.mypy]

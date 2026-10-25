@@ -6,6 +6,31 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `RunStateError`, raised for a run with no result to return. Servers with
+  `durable_execution` report runs that are `stuck`, `cancelled`, `aborted`,
+  `indeterminate`, `expired`, or `completed` without a kept result. A status
+  the SDK does not know raises it too. It carries the run's `execution_id`,
+  `session_id`, `status`, `reason`, and the `body` the server sent.
+
+### Changed
+
+- `RunningRun.status` is `"queued"` or `"running"`.
+
+### Fixed
+
+- Recovery exposing the same uncommitted tool call during `runs.complete`
+  resends its cached answer instead of executing the Python tool again.
+- An expired idempotency response raises `IdempotencyError` with code
+  `idempotency_response_expired`.
+- Runs on a server with `durable_execution` no longer read as finished runs
+  with no result. A `queued` run is a `RunningRun`, which `runs.complete` and
+  `sessions.run` poll as they poll a `running` one. A `completed` run from
+  `GET /v1/runs/{id}` returns the `ExecuteResult` kept in its `response`.
+- `GET /v1/runs/{id}` answers an unknown run with a plain-text `404`, which now
+  raises `UnknownRunError` as the JSON `unknown_run` does.
+
 ## [0.1.1] - 2026-10-15
 
 ### Changed

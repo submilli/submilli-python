@@ -174,6 +174,12 @@ each call suspends the run in memory, and the harness answers with `POST /v1/run
   `idempotency_incomplete`. `409 run_not_suspended` (a call timed out) and `400 unknown_call`
   make the middleware read the run with `GET /v1/runs/{id}` and carry on. A `running` state is
   polled with backoff.
+- **Durable runs.** On a server with `durable_execution`, a `queued` run is polled like a
+  `running` one. A run with no result to return (`submilli.RunStateError`: `stuck`, `cancelled`,
+  `aborted`, `indeterminate`, `expired`, or an unknown state) becomes an error result for the
+  model, as a lost run does, with the status and reason. It does not raise: the model needs to
+  know the run's effects may be partial, and a stuck run holds back later programs in the
+  session.
 - **Discovery.** With exposed tools, `packages__search` and `packages__docs` use
   `/v1/sessions/{id}/packages/...`, so `@tools` is included, and those calls open the session
   (in `aafter_model` too). Without exposed tools nothing changes.
