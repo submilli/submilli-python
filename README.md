@@ -56,7 +56,7 @@ limit in a Blueprint, and Submilli enforces it. In the video, a replacement with
 allowed and a replacement with $42 shipping is blocked. That replacement succeeds after the
 developer raises the limit to $50.
 
-https://github.com/user-attachments/assets/e601c541-400b-4ac1-ad96-23dc0b0e6f90
+https://github.com/user-attachments/assets/8dff6714-b8af-41bd-9d18-b57e7796ae02
 
 ## Install
 
