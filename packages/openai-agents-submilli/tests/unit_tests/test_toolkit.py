@@ -307,3 +307,9 @@ async def test_application_errors_raise(server: FakeServer) -> None:
         await run(SubmilliTools(blueprint="nope", server=SERVER, token=TOKEN), calls_then_done(execute("a")))
     with raises_from_tool(SubmilliError, match="userId"):
         await run(toolkit(), calls_then_done(execute("a")), {"conversation_id": "c_1"})
+
+
+def test_run_sync_works(server: FakeServer) -> None:
+    agent = Agent(name="assistant", model=calls_then_done(execute("a")), tools=list(toolkit().tools))
+    result = Runner.run_sync(agent, "go", context=ADA)
+    assert content(outputs(result)[0])["result"] == "ok"

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from typing import Any, TypedDict
+from typing import Any
 
 import pytest
 import respx
 from agents import Agent, RunContextWrapper, Runner, RunResult, RunState, function_tool, set_tracing_disabled
 from agents.items import ToolCallOutputItem
+from agents.testing.model import ScriptedModel, assistant_message, function_call
 from pydantic import BaseModel
+from typing_extensions import TypedDict
 
 from openai_agents_submilli import SubmilliTools
 from openai_agents_submilli._app_tools import declaration
@@ -238,3 +240,27 @@ async def test_plain_functions_are_wrapped(server: FakeServer) -> None:
     server.programs["main()"] = [("double", {"n": 21})]
     result = await Runner.run(agent(toolkit(double), calls_then_done(execute("main()"))), "go", context=ADA)
     assert json.loads(json.loads(execute_output(result).output)["result"]) == [42]
+
+
+async def test_approvals_work_in_a_streamed_run(server: FakeServer) -> None:
+    server.programs["main()"] = [("refund", {"order_id": "o_7", "amount": 18})]
+    model = ScriptedModel(
+        [
+            [function_call("submilli__typescript__execute", {"code": "main()"}, call_id="call_1")],
+            [assistant_message("done")],
+        ]
+    )
+    assistant = Agent(name="assistant", model=model, tools=list(toolkit(refund).tools))
+    streamed = Runner.run_streamed(assistant, "go", context=ADA)
+    async for _ in streamed.stream_events():
+        pass
+    [approval] = streamed.interruptions
+    assert approval.tool_name == "refund"
+    state = streamed.to_state()
+    state.approve(approval)
+    streamed = Runner.run_streamed(assistant, state)
+    async for _ in streamed.stream_events():
+        pass
+    assert streamed.final_output == "done"
+    [output] = [item for item in streamed.new_items if isinstance(item, ToolCallOutputItem)]
+    assert json.loads(json.loads(output.output)["result"]) == ["refunded 18.0 on o_7"]

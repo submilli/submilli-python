@@ -11,11 +11,13 @@ execute TypeScript code in Submilli's runtime.
 [Docs](https://submilli.ai/docs/) ·
 [Connect Deep Agents](https://submilli.ai/docs/tutorials/connect-deepagents/) ·
 [Package reference](packages/langchain-submilli#readme) ·
+[OpenAI Agents](packages/openai-agents-submilli#readme) ·
 [Submilli runtime](https://github.com/submilli/submilli-runtime) ·
 [Discord](https://discord.gg/VphpukeGGj) ·
 [Website](https://submilli.ai)
 
 [![PyPI: langchain-submilli](https://img.shields.io/pypi/v/langchain-submilli?label=langchain-submilli)](https://pypi.org/project/langchain-submilli/)
+[![PyPI: openai-agents-submilli](https://img.shields.io/pypi/v/openai-agents-submilli?label=openai-agents-submilli)](https://pypi.org/project/openai-agents-submilli/)
 [![PyPI: submilli](https://img.shields.io/pypi/v/submilli?label=submilli)](https://pypi.org/project/submilli/)
 [![CI](https://github.com/submilli/submilli-python/actions/workflows/ci.yml/badge.svg)](https://github.com/submilli/submilli-python/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
@@ -67,8 +69,11 @@ pip install "langchain-submilli[deepagents]"
 ```
 
 For a different LangChain v1 agent, install `langchain-submilli` without the `deepagents`
-extra. To use submilli-server directly from Python, install the
-[`submilli` SDK](packages/submilli/README.md) instead.
+extra. For the OpenAI Agents SDK, install
+[`openai-agents-submilli`](packages/openai-agents-submilli#readme) and follow
+[Connect OpenAI Agents](https://submilli.ai/docs/tutorials/connect-openai-agents/). To use
+submilli-server directly from Python, install the [`submilli` SDK](packages/submilli/README.md)
+instead.
 
 Follow [Connect Deep Agents](https://submilli.ai/docs/tutorials/connect-deepagents/) for the
 complete setup, including the server, Blueprint, model provider, agent, and session cleanup.
@@ -118,16 +123,17 @@ For production, deploy with
 ## Status
 
 Submilli is young and moving quickly. Breaking changes are recorded in the
-[`langchain-submilli` changelog](packages/langchain-submilli/CHANGELOG.md) and
-[`submilli` changelog](packages/submilli/CHANGELOG.md). To talk with us, email
+[`langchain-submilli`](packages/langchain-submilli/CHANGELOG.md),
+[`openai-agents-submilli`](packages/openai-agents-submilli/CHANGELOG.md), and
+[`submilli`](packages/submilli/CHANGELOG.md) changelogs. To talk with us, email
 [hello@submilli.ai](mailto:hello@submilli.ai) or join
 [Discord](https://discord.gg/VphpukeGGj).
 
 ## Development
 
 This repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/).
-In the workspace, `langchain-submilli` uses `packages/submilli` directly. When published, it
-depends on `submilli` from PyPI.
+In the workspace, `langchain-submilli` and `openai-agents-submilli` use `packages/submilli`
+directly. When published, they depend on `submilli` from PyPI.
 
 ```sh
 uv sync --all-packages --all-groups
@@ -138,11 +144,12 @@ uv run ruff format .
 Run type checks and tests inside each package:
 
 ```sh
-cd packages/submilli            # or packages/langchain-submilli
+cd packages/submilli            # or packages/langchain-submilli, packages/openai-agents-submilli
 uv run mypy
 uv run pyright
 uv run pyright --verifytypes submilli --ignoreexternal             # packages/submilli
 uv run pyright --verifytypes langchain_submilli --ignoreexternal   # packages/langchain-submilli
+uv run pyright --verifytypes openai_agents_submilli --ignoreexternal   # packages/openai-agents-submilli
 uv run pytest
 ```
 
@@ -152,6 +159,7 @@ live in the ignored `.submilli-bin/` directory:
 ```sh
 SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration -m 'not durable'         # submilli
 SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration_tests -m 'not durable'   # langchain-submilli
+SUBMILLI_BIN=$PWD/../../.submilli-bin uv run pytest tests/integration_tests                    # openai-agents-submilli
 ```
 
 Durable integration tests require an upstream runtime build containing durable callbacks
@@ -176,9 +184,10 @@ CI runs formatting, linting, type checks, unit tests, integration tests, and sta
 installation checks.
 
 Release a package by pushing a tag that matches its `pyproject.toml` version:
-`submilli-v0.1.0` or `langchain-submilli-v0.1.0`. The release workflow publishes that package
-to PyPI through trusted publishing. Release `submilli` before a `langchain-submilli` version
-that depends on it.
+`submilli-v0.1.0`, `langchain-submilli-v0.1.0`, or `openai-agents-submilli-v0.1.0`. The release
+workflow publishes that package to PyPI through trusted publishing. Release `submilli` before an
+integration version that depends on it. A new package's first release needs its PyPI project
+registered for trusted publishing first.
 
 ## License
 
