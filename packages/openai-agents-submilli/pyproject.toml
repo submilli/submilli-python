@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openai-agents-submilli"
+version = "0.1.0"
+description = "Submilli code mode for the OpenAI Agents SDK: run an agent's tool calls as TypeScript programs on submilli-server, under a Blueprint's policy."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Submilli" }]
+keywords = ["openai", "openai-agents", "agents", "code-mode", "sandbox", "submilli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+# Tested with openai-agents 0.24.0; see uv.lock for the exact set. The SDK is
+# below 1.0, where a minor release may break, so the bound is the next minor.
+dependencies = [
+    "submilli>=0.1.2,<0.2",
+    "openai-agents>=0.24.0,<0.25",
+]
+
+[project.urls]
+Homepage = "https://github.com/submilli/submilli-python/tree/main/packages/openai-agents-submilli"
+Documentation = "https://github.com/submilli/submilli-python/tree/main/packages/openai-agents-submilli#readme"
+Source = "https://github.com/submilli/submilli-python"
+Changelog = "https://github.com/submilli/submilli-python/blob/main/packages/openai-agents-submilli/CHANGELOG.md"
+"Submilli runtime" = "https://github.com/submilli/submilli-runtime"
+
+[dependency-groups]
+test = [
+    "pytest>=8",
+    "pytest-asyncio>=1",
+    "respx>=0.22",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openai_agents_submilli"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "NOTES.md", "CHANGELOG.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: needs a submilli-server",
+]
+testpaths = ["tests/unit_tests"]
+pythonpath = ["."]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+files = ["src", "tests"]
+mypy_path = ["src"]
+explicit_package_bases = true
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+
+[tool.uv.sources]
+submilli = { workspace = true }

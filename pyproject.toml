@@ -15,14 +15,14 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-src = ["packages/submilli/src", "packages/langchain-submilli/src"]
+src = ["packages/submilli/src", "packages/langchain-submilli/src", "packages/openai-agents-submilli/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D2", "D4"]
 ignore = ["D203", "D213", "D401", "D413"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["submilli", "langchain_submilli"]
+known-first-party = ["submilli", "langchain_submilli", "openai_agents_submilli"]
 
 [tool.ruff.lint.per-file-ignores]
 "packages/*/tests/**" = ["D"]
