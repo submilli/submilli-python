@@ -100,11 +100,19 @@ This is where the design differs most from LangChain, and it is worth reading be
   the rest. That is what makes a resume in another process work. The session id travels in the
   nested input as well as in the store, so a resumed program finds its run even if the store
   changed.
-- **Always through the nested agent.** With application tools, the execute tool first executes
-  itself (that is where session replacement and secret rebinds happen, with the run's context),
-  and then always hands over to the nested agent, even when the run already finished. On a
-  resume, the SDK holds the nested run's pending result and expects the agent tool to consume it;
-  returning without it made the SDK raise the same approvals again.
+- **Always through the nested agent.** With application tools, the nested agent runs the
+  program from its first execute on. On a resume, the SDK holds the nested run's pending result
+  and expects the agent tool to consume it; returning without it made the SDK raise the same
+  approvals again. An earlier version executed once in the outer tool first, which on a resume
+  with a lost store started the program again in a new session. Session replacement and secret
+  rebinds still happen in the outer tool, which has the run's context: the nested model lets
+  `404 unknown session` and `409 session_requires_secrets` propagate on its first turn, and the
+  outer tool retries. A `404` after the program has made calls is a lost run, reported to the
+  model, never a restart.
+- **A resume without the store** still finishes the program in the session it began in, because
+  the nested input names it. The outer tool resolves the conversation's session before handing
+  over, so with an empty store it opens a session that this call does not use; later calls in
+  the conversation use it.
 - **Tool outputs.** Each `ptc` tool is copied so that its exceptions are raised instead of
   formatted for a model, and its output is wrapped as `{"__submilli_program_call__": "ok",
   value}` or `"failed"`, `message`. Anything else the SDK records in its place, which is the
@@ -147,7 +155,8 @@ This is where the design differs most from LangChain, and it is worth reading be
   registered over the admin API, so CI runs all of them. They cover typed tools with the run's
   context, the Blueprint refusing a tool, a failing tool, two approvals resumed in "another
   process" (a new toolkit and agent, `RunState.from_string`, a shared `SQLiteSessionStore`),
-  session reuse and isolation, replay, a mismatch, a restart, and an expired session.
+  a resume without the store, session reuse and isolation, replay, a mismatch, a restart, and an
+  expired session.
 - Typing: `mypy --strict`, pyright, and `pyright --verifytypes` at 100%, as for the other
   packages.
 

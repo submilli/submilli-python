@@ -28,7 +28,6 @@ from submilli import (
     AsyncSubmilli,
     ExecuteResult,
     IdempotencyError,
-    RunState,
     RunStateError,
     SessionRequiresSecretsError,
     SubmilliError,
@@ -249,11 +248,9 @@ class SubmilliTools:
         key = idempotency_key(context.tool_call_id) if context.tool_call_id else None
         notice = None
         rebound = False
-        outcome: t.Outcome | None = None
-        state: RunState | None = None
         while True:
             try:
-                state = await self.client.sessions.execute(session["id"], code, idempotency_key=key)
+                output = await self._run(context, code, session["id"], key, notice)
                 break
             except UnknownSessionError:
                 if notice is not None:
@@ -268,34 +265,49 @@ class SubmilliTools:
                     ) from error
                 await self.client.sessions.rebind(session["id"], self._secrets(context.context))
                 rebound = True
-            except IdempotencyError as error:
-                outcome = t.idempotency_outcome(error, session_id=session["id"])
-                break
-            except RunStateError as error:
-                outcome = t.run_state_outcome(error, session_id=session["id"], tool_calls=[])
-                break
-        if self._program_agent is not None:
-            # Always through the nested agent, even for a run that finished: on
-            # a resume, the SDK holds the nested run and expects it to end.
-            program = ProgramInput(code=code, session_id=session["id"], idempotency_key=key, notice=notice)
-            nested = self._program_agent.as_tool(
-                t.EXECUTE,
-                "",
-                failure_error_function=None,
-                run_config=nested_run_config(context.run_config),
-                max_turns=MAX_PROGRAM_CALLS,
-            )
-            output = await nested.on_invoke_tool(context, json.dumps({"input": program.to_json()}))
-            outcome = unwrap(output)
-            if outcome is None:
-                # Interrupted for an approval: the SDK holds the output back.
-                return t.as_text(output)
-        elif outcome is None:
-            assert isinstance(state, ExecuteResult), "a session without application tools only finishes runs"
-            outcome = t.execute_outcome(state, notice=notice)
-        content, data = outcome
+        if isinstance(output, str):
+            return output
+        content, data = output
         self._remember(context.tool_call_id, data)
         return json.dumps(content, ensure_ascii=False)
+
+    async def _run(
+        self, context: ToolContext[Any], code: str, session_id: str, key: str | None, notice: str | None
+    ) -> t.Outcome | str:
+        """Run the program once: its outcome, or the text to hand the SDK when an approval interrupted it.
+
+        Raises `UnknownSessionError` and `SessionRequiresSecretsError` for the
+        caller to replace the session or rebind its secrets, which needs the
+        run's context.
+        """
+        if self._program_agent is None:
+            try:
+                state = await self.client.sessions.execute(session_id, code, idempotency_key=key)
+            except IdempotencyError as error:
+                return t.idempotency_outcome(error, session_id=session_id)
+            except RunStateError as error:
+                return t.run_state_outcome(error, session_id=session_id, tool_calls=[])
+            if not isinstance(state, ExecuteResult):
+                raise SubmilliError(
+                    f"run {state.execution_id} did not finish, in a session opened without application tools"
+                )
+            return t.execute_outcome(state, notice=notice)
+        # With application tools the nested agent runs the program, from its
+        # first execute on. A program resumed after an approval continues from
+        # the nested run the SDK saved, whose input names the session it began
+        # in, so it is never started again in another session.
+        program = ProgramInput(code=code, session_id=session_id, idempotency_key=key, notice=notice)
+        nested = self._program_agent.as_tool(
+            t.EXECUTE,
+            "",
+            failure_error_function=None,
+            run_config=nested_run_config(context.run_config),
+            max_turns=MAX_PROGRAM_CALLS,
+        )
+        output = await nested.on_invoke_tool(context, json.dumps({"input": program.to_json()}))
+        outcome = unwrap(output)
+        # `None` when interrupted for an approval: the SDK holds the output back.
+        return outcome if outcome is not None else t.as_text(output)
 
     async def _last_run(self, context: ToolContext[Any], arguments: dict[str, Any]) -> str:
         conversation = self._require_conversation(context.context)

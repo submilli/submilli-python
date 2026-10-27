@@ -178,8 +178,9 @@ while result.interruptions:
 The program waits on the server meanwhile, up to the Blueprint's `tool_call_timeout`. A
 rejection throws `PermissionDeniedError` in the program with your message. Each call that needs
 approval pauses on its own, so a program that refunds three orders asks three times. The state
-can be saved with `to_string()` and resumed with `RunState.from_string` in another process, as
-long as both use the same `store`.
+can be saved with `to_string()` and resumed with `RunState.from_string` in another process. The
+program finishes in the session it started in; share the `store` too so that later turns of the
+conversation keep using that session.
 
 ## Submilli documentation
 

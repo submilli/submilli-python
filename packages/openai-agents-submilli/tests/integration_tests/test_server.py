@@ -208,6 +208,25 @@ async def test_each_call_waits_for_its_own_approval_across_processes(managed: Ma
     assert [record["outcome"] for record in output.custom_data["tool_calls"]] == ["ok", "denied"]
 
 
+async def test_an_approved_call_resumes_its_run_even_without_the_store(managed: ManagedServer) -> None:
+    paused = await Runner.run(shop(managed, calls_then_done(execute(TWO_EMAILS))), "go", context=ada())
+    saved = paused.to_state().to_string()
+
+    # Another process with a fresh in-memory store: the saved nested run names its session.
+    assistant = shop(managed, Scripted("done"))
+    state = await RunState.from_string(assistant, saved)
+    state.approve(state.get_interruptions()[0])
+    paused = await Runner.run(assistant, state)
+    [second] = paused.interruptions
+    assert json.loads(second.arguments or "{}")["to"] == "second@example.com"
+    state = paused.to_state()
+    state.approve(second)
+    [output] = tool_outputs(await Runner.run(assistant, state))
+
+    assert [email["to"] for email in sent] == ["first@example.com", "second@example.com"]
+    assert body(output)["result"] == "sent to first@example.com | sent to second@example.com", body(output)
+
+
 def scratch_blueprint(name: str, idle_timeout: str = "1h") -> str:
     return f"""kind: blueprint
 name: {name}

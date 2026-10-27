@@ -164,9 +164,16 @@ class ProgramModel(Model):
         except RunStateError as error:
             outcome = t.run_state_outcome(error, session_id=session_id, tool_calls=records)
             return _response(_message(final_text(outcome)))
-        except (UnknownRunError, UnknownSessionError) as error:
-            execution_id = getattr(error, "execution_id", None) or ""
-            outcome = t.lost_run_outcome(execution_id=execution_id, session_id=session_id, tool_calls=records)
+        except UnknownSessionError:
+            if not calls:
+                # Nothing ran yet: the execute tool opens a new session and starts again.
+                raise
+            outcome = t.lost_run_outcome(execution_id="", session_id=session_id, tool_calls=records)
+            return _response(_message(final_text(outcome)))
+        except UnknownRunError as error:
+            outcome = t.lost_run_outcome(
+                execution_id=error.execution_id or "", session_id=session_id, tool_calls=records
+            )
             return _response(_message(final_text(outcome)))
         if not isinstance(result, ExecuteResult):  # pragma: no cover - `complete` returns only finished runs
             raise TypeError(f"unexpected run state {result!r}")
