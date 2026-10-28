@@ -141,7 +141,7 @@ IDEMPOTENCY_MESSAGES = {
 def execute_outcome(
     result: ExecuteResult, *, notice: str | None = None, tool_calls: list[dict[str, Any]] | None = None
 ) -> Outcome:
-    """A finished run: the model gets `result`, `console`, `error` and `denied`."""
+    """A finished run: the model gets `result`, `console`, `error`, `denied` and the tool calls."""
     content: dict[str, Any] = {
         "result": result.result,
         "console": result.console,
@@ -155,14 +155,26 @@ def execute_outcome(
     if notice:
         content["notice"] = notice
     data: dict[str, Any] = {"execution_id": result.execution_id, "session_id": result.session_id}
-    if tool_calls:
-        data["tool_calls"] = tool_calls
+    _add_tool_calls(content, data, tool_calls)
     return content, data
+
+
+def _add_tool_calls(content: dict[str, Any], data: dict[str, Any], tool_calls: list[dict[str, Any]] | None) -> None:
+    """Report the program's calls to the application's tools, in order.
+
+    The model gets them without their ids, so that after a refusal or a lost run it can tell
+    the user which calls already took effect; the application gets them whole.
+    """
+    if not tool_calls:
+        return
+    content["tool_calls"] = [{key: value for key, value in call.items() if key != "call_id"} for call in tool_calls]
+    data["tool_calls"] = tool_calls
 
 
 LOST_RUN_MESSAGE = (
     "The run was lost while it waited on one of the application's tools: the server restarted or no "
-    "longer holds it. Its effects up to that point are unknown. Check what it would have changed before "
+    "longer holds it. Apart from the application tool calls in `tool_calls`, if any, its effects up to that "
+    "point are unknown. Check what it would have changed before "
     "running anything that repeats it, and tell the user if you cannot tell."
 )
 
@@ -176,8 +188,7 @@ def lost_run_outcome(*, execution_id: str, session_id: str, tool_calls: list[dic
         "denied": False,
     }
     data: dict[str, Any] = {"execution_id": execution_id, "session_id": session_id, "refusal": "unknown_run"}
-    if tool_calls:
-        data["tool_calls"] = tool_calls
+    _add_tool_calls(content, data, tool_calls)
     return content, data
 
 
@@ -229,8 +240,7 @@ def run_state_outcome(error: RunStateError, *, session_id: str, tool_calls: list
         reported["reason"] = error.reason
     content: dict[str, Any] = {"result": None, "console": [], "error": reported, "denied": False}
     data: dict[str, Any] = {"execution_id": error.execution_id, "session_id": session_id, "run_status": error.status}
-    if tool_calls:
-        data["tool_calls"] = tool_calls
+    _add_tool_calls(content, data, tool_calls)
     return content, data
 
 

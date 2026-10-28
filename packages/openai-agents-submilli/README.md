@@ -107,9 +107,11 @@ instructions for using them from the Submilli server.
 - On a server with durable execution, the toolkit waits for a queued run. A run that stops
   without a result, such as one that is stuck or cancelled, comes back to the model as an error
   with the run's `status` and `reason`.
-- The execute output the model reads contains `result`, `console`, `error`, and `denied`. The
-  output item's `custom_data`, which the model never sees, contains `execution_id`,
-  `session_id`, and any application-tool calls, for linking to the audit trail.
+- The execute output the model reads contains `result`, `console`, `error`, `denied`, and the
+  program's application-tool calls (`tool_calls`: tool, arguments, outcome), so that after a
+  refusal the model can say which calls already took effect. The output item's `custom_data`,
+  which the model never sees, contains `execution_id`, `session_id`, and the same calls with
+  their `call_id`s, for linking to the audit trail.
 - Errors that are the application's raise: a bad token, an unknown Blueprint, invalid variables,
   a missing conversation id, an unreachable server. Errors found while a tool runs reach you as
   the cause of the SDK's `UserError`. Program failures and denials are tool results.

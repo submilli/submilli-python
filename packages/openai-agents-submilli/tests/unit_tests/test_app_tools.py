@@ -185,6 +185,10 @@ async def test_a_rejection_is_a_denial_in_the_program(server: FakeServer) -> Non
     assert reported["error"]["source"] == "harness"
     assert "need a manager" in reported["error"]["message"]
     assert output.custom_data is not None and output.custom_data["tool_calls"][0]["outcome"] == "denied"
+    # The model sees the calls too, without the ids that are only for the audit trail.
+    assert reported["tool_calls"] == [
+        {"tool": "refund", "args": {"order_id": "o_7", "amount": 42}, "outcome": "denied"}
+    ]
 
 
 async def test_two_approvals_resume_from_a_serialized_state(server: FakeServer) -> None:

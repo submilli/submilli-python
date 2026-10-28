@@ -28,7 +28,10 @@ text for the model.
 - **What the application gets.** LangChain has message artifacts; the SDK has
   `ToolCallOutputItem.custom_data`, filled by a tool's `custom_data_extractor`, which the model
   never sees and `RunState` serializes. It holds `execution_id`, `session_id`, `tool_calls`, and
-  on refusals `refusal` or `run_status`, as the LangChain artifact does.
+  on refusals `refusal` or `run_status`, as the LangChain artifact does. Unlike LangChain, the
+  model also sees `tool_calls` without their ids, as in `@submilli/ai-sdk`: in a live run with a
+  real model, a program that refunded one order and was refused the next left the model unable
+  to say which refund had gone through.
 - **Errors.** Application errors raise. Those found in `is_enabled` (a bad token, an unknown
   Blueprint, a variables mismatch) come out of `Runner.run` as they are. Those found while a
   tool runs (invalid variables, a missing conversation id) come out as the cause of the SDK's
