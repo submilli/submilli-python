@@ -184,6 +184,11 @@ can be saved with `to_string()` and resumed with `RunState.from_string` in anoth
 program finishes in the session it started in; share the `store` too so that later turns of the
 conversation keep using that session.
 
+A run left waiting is not an answer. To go on without one, reject the pending calls on the state
+and run it, which lets the program finish, or drop the unanswered call from the input you pass to
+the next run: the Responses API refuses an input that holds a tool call without its output. A
+dropped program keeps waiting on the server until `tool_call_timeout`, and its call never runs.
+
 ## Submilli documentation
 
 - [Install the CLI and server](https://submilli.ai/docs/install/)
