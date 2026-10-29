@@ -32,6 +32,7 @@ jobs:
         package:
           - { dir: submilli, module: submilli }
           - { dir: langchain-submilli, module: langchain_submilli }
+          - { dir: openai-agents-submilli, module: openai_agents_submilli }
     defaults:
       run:
         working-directory: packages/${{ matrix.package.dir }}
@@ -48,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [submilli, langchain-submilli]
+        package: [submilli, langchain-submilli, openai-agents-submilli]
         python: ["3.11", "3.12", "3.13", "3.14"]
         exclude:
           # langchain-submilli is tested on the Pythons its dependencies support.
@@ -72,6 +73,7 @@ jobs:
           - { package: submilli, tests: tests/integration }
           # Tests that need the research Blueprint's Packages are skipped here.
           - { package: langchain-submilli, tests: tests/integration_tests }
+          - { package: openai-agents-submilli, tests: tests/integration_tests }
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -132,6 +134,9 @@ jobs:
           uv run --isolated --no-project --with dist/submilli-*.whl python -c "import submilli"
           uv run --isolated --no-project --with dist/submilli-*.whl --with dist/langchain_submilli-*.whl \
             python -c "import langchain_submilli"
-      - name: langchain-submilli depends on submilli from PyPI, not the workspace
+          uv run --isolated --no-project --with dist/submilli-*.whl --with dist/openai_agents_submilli-*.whl \
+            python -c "import openai_agents_submilli"
+      - name: The integrations depend on submilli from PyPI, not the workspace
         run: |
           unzip -p dist/langchain_submilli-*.whl '*/METADATA' | grep -x 'Requires-Dist: submilli<0.2,>=0.1.2'
+          unzip -p dist/openai_agents_submilli-*.whl '*/METADATA' | grep -x 'Requires-Dist: submilli<0.2,>=0.1.2'

@@ -1,13 +1,13 @@
 name: Release
 
 # Each package is released on its own tag: `submilli-v0.1.0` publishes the SDK,
-# `langchain-submilli-v0.1.0` the integration. Publishing goes through PyPI
+# `langchain-submilli-v0.1.0` and `openai-agents-submilli-v0.1.0` the integrations. Publishing goes through PyPI
 # trusted publishing: register this workflow and the `pypi` environment for
-# both projects on PyPI first. Release `submilli` before the first
-# `langchain-submilli` that needs it.
+# each project on PyPI first. Release `submilli` before the first integration
+# release that needs it.
 on:
   push:
-    tags: ["submilli-v*", "langchain-submilli-v*"]
+    tags: ["submilli-v*", "langchain-submilli-v*", "openai-agents-submilli-v*"]
 
 permissions:
   contents: read
