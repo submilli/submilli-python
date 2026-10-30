@@ -912,7 +912,7 @@ wheels = [
 
 [[package]]
 name = "langchain-submilli"
-version = "0.1.2"
+version = "0.1.3"
 source = { editable = "packages/langchain-submilli" }
 dependencies = [
     { name = "langchain" },
@@ -1525,7 +1525,7 @@ wheels = [
 
 [[package]]
 name = "openai-agents-submilli"
-version = "0.1.0"
+version = "0.1.3"
 source = { editable = "packages/openai-agents-submilli" }
 dependencies = [
     { name = "openai-agents" },
@@ -2370,7 +2370,7 @@ wheels = [
 
 [[package]]
 name = "submilli"
-version = "0.1.2"
+version = "0.1.3"
 source = { editable = "packages/submilli" }
 dependencies = [
     { name = "httpx" },

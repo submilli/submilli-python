@@ -4,6 +4,13 @@ All notable changes to this project are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-10-30
+
+### Changed
+
+- Align the SDK and both integration packages on version 0.1.3.
+- Require `submilli>=0.1.3,<0.2`.
+
 ## [0.1.2] - 2026-10-25
 
 ### Fixed

@@ -183,10 +183,11 @@ uv run python packages/submilli/scripts/generate_sync.py
 CI runs formatting, linting, type checks, unit tests, integration tests, and standalone wheel
 installation checks.
 
-Release a package by pushing a tag that matches its `pyproject.toml` version:
-`submilli-v0.1.0`, `langchain-submilli-v0.1.0`, or `openai-agents-submilli-v0.1.0`. The release
-workflow publishes that package to PyPI through trusted publishing. Release `submilli` before an
-integration version that depends on it. A new package's first release needs its PyPI project
+All three packages share a release version and are released together. Push tags matching
+their `pyproject.toml` versions: `submilli-v0.1.3`, `langchain-submilli-v0.1.3`, and
+`openai-agents-submilli-v0.1.3`. Each tag publishes its package to PyPI through trusted
+publishing. Publish `submilli` first, then the integrations that depend on it.
+A new package's first release needs its PyPI project
 registered for trusted publishing first.
 
 ## License
