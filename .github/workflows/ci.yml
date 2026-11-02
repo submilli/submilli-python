@@ -11,7 +11,7 @@ permissions:
 
 env:
   # Batch documentation requires this runtime commit until its next release.
-  SUBMILLI_RUNTIME_REF: "421a9a1d4b8ccb925c6d7acfeb127e907a6ebc4f"
+  SUBMILLI_RUNTIME_REF: "7203d2927261c4f1a63d4c4ecc4c4cfe1bd8061c"
 
 jobs:
   lint:
