@@ -23,6 +23,7 @@ from submilli._types import (
     ExecuteResult,
     LastRun,
     PackageDocs,
+    PackageDocsEntry,
     RunState,
     ToolDeclaration,
     ToolResult,
@@ -280,3 +281,24 @@ def execute_once(
 
 def read_execute_result(response: httpx.Response) -> ExecuteResult:
     return ExecuteResult._from_json(_json(response))
+
+
+def packages_docs_batch(scope: str, identifier: str, names: Sequence[str]) -> Request:
+    return Request("POST", f"/v1/{scope}/{_seg(identifier)}/packages/docs", json={"names": list(names)}, retryable=True)
+
+
+def read_package_docs_batch(response: httpx.Response) -> list[PackageDocsEntry]:
+    results = read_json(response).get("results")
+    if not isinstance(results, list):
+        raise TypeError("expected docs results array")
+    entries = []
+    for entry in results:
+        if (
+            not isinstance(entry, dict)
+            or not isinstance(entry.get("name"), str)
+            or not isinstance(entry.get("found"), bool)
+            or not isinstance(entry.get("text"), str)
+        ):
+            raise TypeError("invalid batch docs entry")
+        entries.append(PackageDocsEntry(name=entry["name"], found=entry["found"], text=entry["text"]))
+    return entries

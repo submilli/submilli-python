@@ -304,7 +304,7 @@ class ExposedTools:
             "\n\nThis agent's programs can also call the application's own tools, as the `@tools` package "
             f'(`import tools from "@tools";`): {names}. The application runs each call and returns its '
             f"result to the program.{approval} Read their signatures with "
-            '`submilli__typescript__packages__docs("@tools")`.'
+            '`submilli__typescript__packages__docs({"names":["@tools"]})`.'
         )
 
     async def answer(self, call: PendingCall, runtime: ToolRuntime[Any, Any], used: list[int]) -> CallOutcome:

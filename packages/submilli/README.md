@@ -194,6 +194,13 @@ await client.blueprints.builtin_docs("research", ["Map", "Temporal"])
 `sessions.search_packages` and `sessions.package_docs` answer the same for one session, including
 its `@tools`.
 
+### Batch package documentation
+
+Call `package_docs_batch(id, names)` on `client.blueprints` or `client.sessions` to fetch several modules in one request. Results retain input order and duplicates; each entry has `name`, `found`, and `text`. An unknown package has `found: false`, while an unknown blueprint or session fails the request. An empty list returns an empty list.
+
+The existing `package_docs(id, name)` API remains available and continues using the original GET route. Batch methods and the agent integrations require a server with SUB-2074 support; there is no fallback to individual requests.
+
+
 ## Errors
 
 Every error is a `SubmilliError`:

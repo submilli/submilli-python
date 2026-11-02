@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 env:
-  # The submilli-server release the integration tests run against.
-  SUBMILLI_VERSION: "0.4.1"
+  # Batch documentation requires this runtime commit until its next release.
+  SUBMILLI_RUNTIME_REF: "421a9a1d4b8ccb925c6d7acfeb127e907a6ebc4f"
 
 jobs:
   lint:
@@ -77,20 +77,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
-      - name: Download submilli-server ${{ env.SUBMILLI_VERSION }}
-        run: |
-          mkdir -p .submilli-bin && cd .submilli-bin
-          base=https://github.com/submilli/submilli-runtime/releases/download/v${SUBMILLI_VERSION}
-          curl -fsSLO "$base/submilli-server-x86_64-unknown-linux-musl"
-          curl -fsSLO "$base/SHA256SUMS"
-          grep ' submilli-server-x86_64-unknown-linux-musl$' SHA256SUMS | sha256sum -c
-          mv submilli-server-x86_64-unknown-linux-musl submilli-server
-          chmod +x submilli-server
+      - uses: actions/checkout@v7
+        with:
+          repository: submilli/submilli-runtime
+          ref: ${{ env.SUBMILLI_RUNTIME_REF }}
+          path: runtime
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - name: Build the runtime with batch documentation
+        run: cargo build --locked --release -p submilli-server
+        working-directory: runtime
+        env:
+          CARGO_BUILD_JOBS: "2"
       - run: uv sync --all-packages --all-groups --locked
       - run: uv run pytest ${{ matrix.tests }} -m 'not durable'
         working-directory: packages/${{ matrix.package }}
         env:
-          SUBMILLI_BIN: ${{ github.workspace }}/.submilli-bin
+          SUBMILLI_BIN: ${{ github.workspace }}/runtime/target/release
 
   durable-integration:
     runs-on: ubuntu-latest

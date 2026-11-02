@@ -86,6 +86,17 @@ class FakeServer:
             return _json(401, {"error": "unauthorized", "message": "missing or unrecognised API token"})
         path, method = request.url.path, request.method
         body: dict[str, Any] = json.loads(request.content) if request.content else {}
+        if method == "POST" and re.fullmatch(r"/v1/(sessions|blueprints)/[^/]+/packages/docs", path):
+            scope = httpx.Request("GET", request.url.copy_set_param("name", "@submilli/jina"), headers=request.headers)
+            exists = self.handle(scope)
+            if exists.status_code != 200:
+                return exists
+            results = []
+            for name in body["names"]:
+                single = httpx.Request("GET", request.url.copy_set_param("name", name), headers=request.headers)
+                response = self.handle(single)
+                results.append({"name": name, "found": response.status_code == 200, "text": response.text})
+            return httpx.Response(200, json={"results": results})
         if method == "POST" and path == "/v1/sessions":
             return self.open(body)
         if match := re.fullmatch(r"/v1/sessions/([^/]+)/execute", path):
