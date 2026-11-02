@@ -52,7 +52,15 @@ PACKAGES_SEARCH_PARAMS = _object(
         }
     }
 )
-PACKAGES_DOCS_PARAMS = _object({"name": {"type": "string", "description": "Package name, e.g. `submilli:crypto`."}})
+PACKAGES_DOCS_PARAMS = _object(
+    {
+        "names": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Package names to read before writing a program.",
+        }
+    }
+)
 BUILTINS_DOCS_PARAMS = _object(
     {
         "names": {

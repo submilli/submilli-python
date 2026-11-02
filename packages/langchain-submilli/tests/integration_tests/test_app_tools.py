@@ -130,7 +130,7 @@ async def test_a_program_calls_a_typed_tool_and_uses_its_fields(managed: Managed
 
 
 async def test_package_docs_show_the_tools_signatures(managed: ManagedServer) -> None:
-    graph = agent(managed, [call("submilli__typescript__packages__docs", {"name": "@tools"})], "done")
+    graph = agent(managed, [call("submilli__typescript__packages__docs", {"names": ["@tools"]})], "done")
     text = first_tool(await start(graph)).content
     assert "function query_orders(args: { customer: string }): { count: number; for_user: number };" in text, text
 

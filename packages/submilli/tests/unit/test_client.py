@@ -225,3 +225,34 @@ def test_inline_refs_resolves_local_definitions_and_stops_at_recursion() -> None
             "node": {"type": "object", "properties": {"next": {}}},
         },
     }
+
+
+async def test_batch_docs_keep_order_duplicates_missing_and_legacy(server: FakeServer, client: AsyncSubmilli) -> None:
+    names = ["@submilli/jina", "@nope/x", "@submilli/jina"]
+    entries = await client.blueprints.package_docs_batch("research", names)
+    assert [entry.name for entry in entries] == names
+    assert [entry.found for entry in entries] == [True, False, True]
+    assert entries[0].text == (await client.blueprints.package_docs("research", names[0])).text
+    assert await client.blueprints.package_docs_batch("research", []) == []
+    with pytest.raises(UnknownBlueprintError):
+        await client.blueprints.package_docs_batch("nope", [])
+    session = await client.sessions.create("research", variables={"userId": "u"})
+    assert await client.sessions.package_docs_batch(session.id, names) == entries
+    with pytest.raises(UnknownSessionError):
+        await client.sessions.package_docs_batch("missing", names)
+    requests = [
+        request
+        for request in server.requests
+        if request.method == "GET" and request.url.path.endswith("packages/docs") and "names[]" in request.url.params
+    ]
+    assert requests[0].url.params.get_list("names[]") == names
+    assert requests[0].content == b""
+    special = "@scope/a+b & c/δ"
+    assert (await client.blueprints.package_docs_batch("research", [special]))[0].name == special
+
+
+def test_sync_batch_docs_preserve_legacy(server: FakeServer) -> None:
+    with Submilli(base_url=SERVER, token=TOKEN) as client:
+        docs = client.blueprints.package_docs_batch("research", ["@submilli/jina", "@nope/x"])
+        assert [entry.found for entry in docs] == [True, False]
+        assert docs[0].text == client.blueprints.package_docs("research", "@submilli/jina").text

@@ -140,7 +140,7 @@ async def test_a_custom_conversation_id(server: FakeServer) -> None:
 async def test_discovery_tools_do_not_open_a_session(server: FakeServer) -> None:
     model = calls_then_done(
         call("submilli__typescript__packages__search", {"query": "jina"}),
-        call("submilli__typescript__packages__docs", {"name": "@submilli/jina"}),
+        call("submilli__typescript__packages__docs", {"names": ["@submilli/jina"]}),
         call("submilli__typescript__builtins__list", {}),
         call("submilli__typescript__builtins__docs", {"names": ["Map"]}),
         call("submilli__typescript__last_run", {}),
@@ -148,7 +148,7 @@ async def test_discovery_tools_do_not_open_a_session(server: FakeServer) -> None
     result = await run(toolkit(), model)
     texts = [item.output for item in outputs(result)]
     assert json.loads(texts[0])["results"][0]["name"] == "@submilli/jina"
-    assert texts[1].startswith("# jina")
+    assert json.loads(texts[1])["results"][0]["text"].startswith("# jina")
     assert texts[4] == "No program has run in this conversation yet."
     assert server.sessions == {}
 

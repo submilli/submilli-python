@@ -180,7 +180,7 @@ async def test_discovery_tools(submilli: SubmilliMiddleware) -> None:
     model = scripted(
         [
             call("submilli__typescript__packages__search", {"query": "jina"}),
-            call("submilli__typescript__packages__docs", {"name": "@submilli/jina"}),
+            call("submilli__typescript__packages__docs", {"names": ["@submilli/jina"]}),
             call("submilli__typescript__builtins__list", {}),
             call("submilli__typescript__builtins__docs", {"names": ["Map", "Temporal.Instant"]}),
         ],

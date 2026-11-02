@@ -137,6 +137,7 @@ async def test_a_program_calls_the_applications_tools(server: FakeServer) -> Non
     # The model sees the tools in the execute description, not as tools of its own.
     described = model.descriptions()
     assert "`lookup_order`, `customer`" in described["submilli__typescript__execute"]
+    assert 'packages__docs({"names":["@tools"]})' in described["submilli__typescript__execute"]
     assert "lookup_order" not in described
 
 
@@ -217,7 +218,7 @@ async def test_two_approvals_resume_from_a_serialized_state(server: FakeServer) 
 async def test_discovery_includes_the_sessions_tools(server: FakeServer) -> None:
     model = calls_then_done(
         call("submilli__typescript__packages__search", {"query": ""}),
-        call("submilli__typescript__packages__docs", {"name": "@tools"}),
+        call("submilli__typescript__packages__docs", {"names": ["@tools"]}),
     )
     result = await Runner.run(agent(toolkit(greet), model), "go", context=ADA)
     texts = [item.output for item in result.new_items if isinstance(item, ToolCallOutputItem)]

@@ -24,6 +24,7 @@ from submilli._types import (
     ExecuteResult,
     LastRun,
     PackageDocs,
+    PackageDocsEntry,
     PendingCall,
     RunningRun,
     RunState,
@@ -216,6 +217,10 @@ class AsyncSessions:
         """A Package's docs, where `@tools` is the session's own."""
         return b.read_package_docs(await self._client._send(b.session_packages_docs(session_id, name)))
 
+    async def package_docs_batch(self, session_id: str, names: Sequence[str]) -> list[PackageDocsEntry]:
+        """Read several packages in one request. Requires server batch-docs support."""
+        return b.read_package_docs_batch(await self._client._send(b.packages_docs_batch("sessions", session_id, names)))
+
 
 class AsyncRuns:
     """Runs that wait on the application's tools."""
@@ -311,6 +316,12 @@ class AsyncBlueprints:
     async def package_docs(self, blueprint: str, name: str) -> PackageDocs:
         """`GET /v1/blueprints/{name}/packages/docs`."""
         return b.read_package_docs(await self._client._send(b.packages_docs(blueprint, name)))
+
+    async def package_docs_batch(self, blueprint: str, names: Sequence[str]) -> list[PackageDocsEntry]:
+        """Read several packages in one request. Requires server batch-docs support."""
+        return b.read_package_docs_batch(
+            await self._client._send(b.packages_docs_batch("blueprints", blueprint, names))
+        )
 
     async def builtins(self, blueprint: str) -> dict[str, Any]:
         """`GET /v1/blueprints/{name}/builtins`: the built-ins in scope without an import."""
