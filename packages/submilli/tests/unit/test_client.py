@@ -240,12 +240,15 @@ async def test_batch_docs_keep_order_duplicates_missing_and_legacy(server: FakeS
     assert await client.sessions.package_docs_batch(session.id, names) == entries
     with pytest.raises(UnknownSessionError):
         await client.sessions.package_docs_batch("missing", names)
-    posts = [
+    requests = [
         request
         for request in server.requests
-        if request.method == "POST" and request.url.path.endswith("packages/docs")
+        if request.method == "GET" and request.url.path.endswith("packages/docs") and "names[]" in request.url.params
     ]
-    assert json.loads(posts[0].content) == {"names": names}
+    assert requests[0].url.params.get_list("names[]") == names
+    assert requests[0].content == b""
+    special = "@scope/a+b & c/δ"
+    assert (await client.blueprints.package_docs_batch("research", [special]))[0].name == special
 
 
 def test_sync_batch_docs_preserve_legacy(server: FakeServer) -> None:

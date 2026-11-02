@@ -284,7 +284,12 @@ def read_execute_result(response: httpx.Response) -> ExecuteResult:
 
 
 def packages_docs_batch(scope: str, identifier: str, names: Sequence[str]) -> Request:
-    return Request("POST", f"/v1/{scope}/{_seg(identifier)}/packages/docs", json={"names": list(names)}, retryable=True)
+    return Request(
+        "GET",
+        f"/v1/{scope}/{_seg(identifier)}/packages/docs",
+        params=[("names[]", name) for name in names],
+        retryable=True,
+    )
 
 
 def read_package_docs_batch(response: httpx.Response) -> list[PackageDocsEntry]:

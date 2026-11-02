@@ -350,7 +350,7 @@ async def test_package_docs_include_the_sessions_tools(server: FakeServer) -> No
     model = calls_then_done(call("submilli__typescript__packages__docs", {"names": ["@tools"]}))
     result = await start(agent(model, middleware(ptc=[query_orders])))
 
-    assert server.calls("POST", r"/v1/sessions/.*/packages/docs")
+    assert server.calls("GET", r"/v1/sessions/.*/packages/docs")
     assert "function query_orders" in executed(result).content
     # Discovery of `@tools` needs the thread's session, so it opened one.
     assert len(server.calls("POST", "/v1/sessions")) == 1
