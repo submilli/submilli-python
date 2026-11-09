@@ -131,8 +131,10 @@ class SubmilliTools:
         conversation_id: ConversationMapper | None = None,
         store: SessionStore | None = None,
         client: AsyncSubmilli | None = None,
+        function_docs: bool = False,
         ptc: Sequence[FunctionTool | Callable[..., Any]] | None = None,
     ) -> None:
+        self.function_docs = function_docs
         self.blueprint: str = blueprint
         self.client: AsyncSubmilli = client or AsyncSubmilli(base_url=server, token=token)
         self.store: SessionStore = store if store is not None else InMemorySessionStore()
@@ -176,12 +178,13 @@ class SubmilliTools:
             t.EXECUTE: self._execute,
             t.LAST_RUN: self._last_run,
             t.PACKAGES_SEARCH: self._packages_search,
-            t.PACKAGES_DOCS: self._packages_docs,
+            t.PACKAGES_DOCS: self._packages_index if self.function_docs else self._packages_docs,
+            t.PACKAGES_FUNCTIONS: self._packages_functions,
             t.BUILTINS_LIST: self._builtins_list,
             t.BUILTINS_DOCS: self._builtins_docs,
         }
         tools: list[FunctionTool] = []
-        for spec in t.SPECS:
+        for spec in t.specs(self.function_docs):
             handler = handlers[spec.name]
 
             async def invoke(
@@ -342,6 +345,26 @@ class SubmilliTools:
 
         return await self._in_session(context, docs)
 
+    async def _packages_index(self, context: ToolContext[Any], arguments: dict[str, Any]) -> str:
+        names = arguments["names"]
+
+        async def fetch(session_id: str) -> str:
+            return t.as_text(await self.client.sessions.package_docs_batch(session_id, names, view="index"))
+
+        if not self._program_tools:
+            return t.as_text(await self.client.blueprints.package_docs_batch(self.blueprint, names, view="index"))
+        return await self._in_session(context, fetch)
+
+    async def _packages_functions(self, context: ToolContext[Any], arguments: dict[str, Any]) -> str:
+        requests = arguments["requests"]
+
+        async def fetch(session_id: str) -> str:
+            return t.as_text(await self.client.sessions.package_functions(session_id, requests))
+
+        if not self._program_tools:
+            return t.as_text(await self.client.blueprints.package_functions(self.blueprint, requests))
+        return await self._in_session(context, fetch)
+
     async def _in_session(self, context: ToolContext[Any], fetch: Callable[[str], Awaitable[str]]) -> str:
         """Discovery that includes the session's own `@tools`, so it needs the conversation's session."""
         conversation = self._require_conversation(context.context)
@@ -461,9 +484,13 @@ class SubmilliTools:
         async with self._describe_lock:
             if self._described:
                 return
-            described = t.descriptions(await self.client.blueprints.prompt(self.blueprint))
+            described = t.descriptions(
+                await self.client.blueprints.prompt(
+                    self.blueprint, **({"function_docs": True} if self.function_docs else {})
+                )
+            )
             if self._program_tools:
-                described[t.EXECUTE] += self._program_tools.prompt()
+                described[t.EXECUTE] += self._program_tools.prompt(function_docs=self.function_docs)
             for tool in self.tools:
                 tool.description = described[tool.name]
             self._described = True

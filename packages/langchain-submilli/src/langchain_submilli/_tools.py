@@ -23,6 +23,7 @@ from submilli import BlueprintPrompt, ExecuteResult, IdempotencyError, RunStateE
 EXECUTE = "submilli__typescript__execute"
 LAST_RUN = "submilli__typescript__last_run"
 PACKAGES_SEARCH = "submilli__typescript__packages__search"
+PACKAGES_FUNCTIONS = "submilli__typescript__packages__functions"
 PACKAGES_DOCS = "submilli__typescript__packages__docs"
 BUILTINS_LIST = "submilli__typescript__builtins__list"
 BUILTINS_DOCS = "submilli__typescript__builtins__docs"
@@ -55,6 +56,19 @@ class PackagesDocsArgs(BaseModel):
     name: str = Field(description="Package name, e.g. `submilli:crypto`.")
 
 
+class FunctionRequest(BaseModel):
+    name: str
+    functions: list[str] = Field(min_length=1)
+
+
+class PackagesFunctionsArgs(BaseModel):
+    requests: list[FunctionRequest] = Field(min_length=1)
+
+
+class PackagesIndexArgs(BaseModel):
+    names: list[str] = Field(min_length=1)
+
+
 class BuiltinsDocsArgs(BaseModel):
     names: list[str] = Field(
         description='Built-in names to look up, e.g. `["Array", "Map", "Temporal"]`. Each returns its '
@@ -83,6 +97,7 @@ SPECS = (
 def descriptions(prompt: BlueprintPrompt) -> dict[str, str]:
     """The description of each tool, from the Blueprint's prompt endpoint."""
     return {
+        **({PACKAGES_FUNCTIONS: prompt.tools["functions"]} if "functions" in prompt.tools else {}),
         EXECUTE: prompt.prompt,
         LAST_RUN: prompt.tools["last_run"],
         PACKAGES_SEARCH: prompt.tools["search"],
@@ -97,9 +112,17 @@ def descriptions(prompt: BlueprintPrompt) -> dict[str, str]:
 Handler = Callable[..., Awaitable[Any]]
 
 
-def build_tools(handlers: dict[str, Handler]) -> list[BaseTool]:
+def build_tools(handlers: dict[str, Handler], *, function_docs: bool = False) -> list[BaseTool]:
     """One `StructuredTool` per spec, each calling its handler. Async only."""
-    return [_build(spec, handlers[spec.name]) for spec in SPECS]
+    specs = [
+        _Spec(PACKAGES_DOCS, PackagesIndexArgs, "Read package function indexes.")
+        if function_docs and spec.name == PACKAGES_DOCS
+        else spec
+        for spec in SPECS
+    ]
+    if function_docs:
+        specs.append(_Spec(PACKAGES_FUNCTIONS, PackagesFunctionsArgs, "Fetch selected declarations from packages."))
+    return [_build(spec, handlers[spec.name]) for spec in specs]
 
 
 def _build(spec: _Spec, handler: Handler) -> BaseTool:
