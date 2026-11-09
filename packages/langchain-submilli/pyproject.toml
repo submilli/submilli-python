@@ -65,6 +65,7 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: needs a running submilli-server with the research Blueprint",
     "durable: requires a runtime build with durable execution and tool callbacks",
+    "function_docs: requires a runtime build with selective function documentation",
 ]
 testpaths = ["tests/unit_tests"]
 pythonpath = ["."]
