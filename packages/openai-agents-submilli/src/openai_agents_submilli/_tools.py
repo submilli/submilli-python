@@ -17,6 +17,7 @@ from submilli import BlueprintPrompt, ExecuteResult, IdempotencyError, RunStateE
 EXECUTE = "submilli__typescript__execute"
 LAST_RUN = "submilli__typescript__last_run"
 PACKAGES_SEARCH = "submilli__typescript__packages__search"
+PACKAGES_FUNCTIONS = "submilli__typescript__packages__functions"
 PACKAGES_DOCS = "submilli__typescript__packages__docs"
 BUILTINS_LIST = "submilli__typescript__builtins__list"
 BUILTINS_DOCS = "submilli__typescript__builtins__docs"
@@ -86,6 +87,7 @@ SPECS = (
 def descriptions(prompt: BlueprintPrompt) -> dict[str, str]:
     """The description of each tool, from the Blueprint's prompt endpoint."""
     return {
+        **({PACKAGES_FUNCTIONS: prompt.tools["functions"]} if "functions" in prompt.tools else {}),
         EXECUTE: prompt.prompt,
         LAST_RUN: prompt.tools["last_run"],
         PACKAGES_SEARCH: prompt.tools["search"],
@@ -261,3 +263,28 @@ def idempotency_outcome(error: IdempotencyError, *, session_id: str) -> Outcome:
 
 def as_text(value: Any) -> str:
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
+def specs(function_docs: bool) -> tuple[Spec, ...]:
+    if not function_docs:
+        return SPECS
+    index = Spec(
+        PACKAGES_DOCS,
+        _object({"names": {"type": "array", "items": {"type": "string"}}}),
+        "Read package function indexes.",
+    )
+    functions = Spec(
+        PACKAGES_FUNCTIONS,
+        _object(
+            {
+                "requests": {
+                    "type": "array",
+                    "items": _object(
+                        {"name": {"type": "string"}, "functions": {"type": "array", "items": {"type": "string"}}}
+                    ),
+                }
+            }
+        ),
+        "Fetch selected declarations from packages.",
+    )
+    return (*tuple(index if spec.name == PACKAGES_DOCS else spec for spec in SPECS), functions)

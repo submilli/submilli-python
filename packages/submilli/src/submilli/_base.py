@@ -7,6 +7,7 @@ Each endpoint is a request builder and a reader, so that `Submilli` and
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import random
 from collections.abc import Mapping, Sequence
@@ -196,8 +197,13 @@ def session_packages_search(session_id: str, query: str) -> Request:
     return Request("GET", f"/v1/sessions/{_seg(session_id)}/packages/search", params={"q": query}, retryable=True)
 
 
-def session_packages_docs(session_id: str, name: str) -> Request:
-    return Request("GET", f"/v1/sessions/{_seg(session_id)}/packages/docs", params={"name": name}, retryable=True)
+def session_packages_docs(session_id: str, name: str, *, view: str = "full") -> Request:
+    return Request(
+        "GET",
+        f"/v1/sessions/{_seg(session_id)}/packages/docs",
+        params={"name": name, **({"view": view} if view != "full" else {})},
+        retryable=True,
+    )
 
 
 # Runs
@@ -218,8 +224,13 @@ def retrieve_run(run_id: str) -> Request:
 # Blueprints
 
 
-def prompt(blueprint: str) -> Request:
-    return Request("GET", f"/v1/blueprints/{_seg(blueprint)}/prompt", retryable=True)
+def prompt(blueprint: str, *, function_docs: bool = False) -> Request:
+    return Request(
+        "GET",
+        f"/v1/blueprints/{_seg(blueprint)}/prompt",
+        params={"function_docs": "true"} if function_docs else None,
+        retryable=True,
+    )
 
 
 def read_prompt(response: httpx.Response) -> BlueprintPrompt:
@@ -230,8 +241,13 @@ def packages_search(blueprint: str, query: str) -> Request:
     return Request("GET", f"/v1/blueprints/{_seg(blueprint)}/packages/search", params={"q": query}, retryable=True)
 
 
-def packages_docs(blueprint: str, name: str) -> Request:
-    return Request("GET", f"/v1/blueprints/{_seg(blueprint)}/packages/docs", params={"name": name}, retryable=True)
+def packages_docs(blueprint: str, name: str, *, view: str = "full") -> Request:
+    return Request(
+        "GET",
+        f"/v1/blueprints/{_seg(blueprint)}/packages/docs",
+        params={"name": name, **({"view": view} if view != "full" else {})},
+        retryable=True,
+    )
 
 
 def read_json(response: httpx.Response) -> dict[str, Any]:
@@ -280,3 +296,39 @@ def execute_once(
 
 def read_execute_result(response: httpx.Response) -> ExecuteResult:
     return ExecuteResult._from_json(_json(response))
+
+
+def session_packages_functions(session_id: str, requests: Sequence[Mapping[str, Any]]) -> Request:
+    return Request(
+        "GET",
+        f"/v1/sessions/{_seg(session_id)}/packages/functions",
+        params={"requests": json.dumps(list(requests))},
+        retryable=True,
+    )
+
+
+def session_packages_docs_batch(session_id: str, names: Sequence[str], *, view: str = "full") -> Request:
+    return Request(
+        "GET",
+        f"/v1/sessions/{_seg(session_id)}/packages/docs",
+        params={"names[]": list(names), **({"view": view} if view != "full" else {})},
+        retryable=True,
+    )
+
+
+def packages_functions(blueprint: str, requests: Sequence[Mapping[str, Any]]) -> Request:
+    return Request(
+        "GET",
+        f"/v1/blueprints/{_seg(blueprint)}/packages/functions",
+        params={"requests": json.dumps(list(requests))},
+        retryable=True,
+    )
+
+
+def packages_docs_batch(blueprint: str, names: Sequence[str], *, view: str = "full") -> Request:
+    return Request(
+        "GET",
+        f"/v1/blueprints/{_seg(blueprint)}/packages/docs",
+        params={"names[]": list(names), **({"view": view} if view != "full" else {})},
+        retryable=True,
+    )

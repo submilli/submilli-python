@@ -212,6 +212,19 @@ The integration tests use a scripted model and need no model provider key.
 
 Implementation notes are in [NOTES.md](https://github.com/submilli/submilli-python/blob/main/packages/openai-agents-submilli/NOTES.md).
 
+## Function documentation mode
+
+Pass `function_docs=True` to the middleware/toolkit constructor to fetch compact
+package indexes before selected declarations. The docs tool accepts `names`, and
+`submilli__typescript__packages__functions` accepts a cross-package batch:
+
+```json
+{"requests": [{"name": "@submilli/jina", "functions": ["searchJson"]}, {"name": "submilli:crypto", "functions": ["sha256"]}]}
+```
+
+Each package returns its own result, including referenced types or an error.
+The default remains full documentation with the original tool list.
+
 ## License
 
 Apache-2.0.

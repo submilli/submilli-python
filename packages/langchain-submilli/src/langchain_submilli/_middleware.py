@@ -157,10 +157,12 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
         *,
         hide_filesystem_tools: bool = False,
         client: AsyncSubmilli | None = None,
+        function_docs: bool = False,
         ptc: Sequence[BaseTool | Callable[..., Any]] | None = None,
         interrupt_on: Mapping[str, bool | InterruptOnConfig] | None = None,
     ) -> None:
         super().__init__()
+        self.function_docs = function_docs
         self.blueprint: str = blueprint
         self.client: AsyncSubmilli = client or AsyncSubmilli(base_url=server, token=token)
         self._variables = _mapper(variables, user_id_variables)
@@ -178,10 +180,12 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
                 t.EXECUTE: self._execute,
                 t.LAST_RUN: self._last_run,
                 t.PACKAGES_SEARCH: self._packages_search,
-                t.PACKAGES_DOCS: self._packages_docs,
+                t.PACKAGES_DOCS: self._packages_index if function_docs else self._packages_docs,
+                t.PACKAGES_FUNCTIONS: self._packages_functions,
                 t.BUILTINS_LIST: self._builtins_list,
                 t.BUILTINS_DOCS: self._builtins_docs,
-            }
+            },
+            function_docs=function_docs,
         )
 
     # Closing a thread's session
@@ -373,6 +377,28 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
 
         return await self._in_session(t.PACKAGES_DOCS, runtime, docs)
 
+    async def _packages_index(self, names: list[str], runtime: ToolRuntime) -> str | ToolMessage | Command[Any]:
+        async def fetch(session_id: str) -> str:
+            return t.as_text(await self.client.sessions.package_docs_batch(session_id, names, view="index"))
+
+        if not self._exposed:
+            return t.as_text(await self.client.blueprints.package_docs_batch(self.blueprint, names, view="index"))
+        return await self._in_session(t.PACKAGES_DOCS, runtime, fetch)
+
+    async def _packages_functions(
+        self, requests: list[t.FunctionRequest], runtime: ToolRuntime
+    ) -> str | ToolMessage | Command[Any]:
+        selections = [
+            request.model_dump() if isinstance(request, t.FunctionRequest) else request for request in requests
+        ]
+
+        async def fetch(session_id: str) -> str:
+            return t.as_text(await self.client.sessions.package_functions(session_id, selections))
+
+        if not self._exposed:
+            return t.as_text(await self.client.blueprints.package_functions(self.blueprint, selections))
+        return await self._in_session(t.PACKAGES_FUNCTIONS, runtime, fetch)
+
     async def _in_session(
         self, tool: str, runtime: ToolRuntime, fetch: Callable[[str], Awaitable[str]]
     ) -> str | ToolMessage | Command[Any]:
@@ -411,7 +437,10 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
     def _session_tools(self) -> frozenset[str]:
         """The tools whose first call opens the thread's session."""
         if self._exposed:
-            return frozenset({t.EXECUTE, t.PACKAGES_SEARCH, t.PACKAGES_DOCS})
+            return frozenset(
+                {t.EXECUTE, t.PACKAGES_SEARCH, t.PACKAGES_DOCS}
+                | ({t.PACKAGES_FUNCTIONS} if self.function_docs else set())
+            )
         return frozenset({t.EXECUTE})
 
     def _check_binding(self, session: SubmilliSession, variables: dict[str, str]) -> None:
@@ -483,9 +512,13 @@ class SubmilliMiddleware(AgentMiddleware[SubmilliState, Any, Any]):
         async with self._describe_lock:
             if self._described:
                 return
-            described = t.descriptions(await self.client.blueprints.prompt(self.blueprint))
+            described = t.descriptions(
+                await self.client.blueprints.prompt(
+                    self.blueprint, **({"function_docs": True} if self.function_docs else {})
+                )
+            )
             if self._exposed:
-                described[t.EXECUTE] += self._exposed.prompt()
+                described[t.EXECUTE] += self._exposed.prompt(function_docs=self.function_docs)
             for tool in self.tools:
                 tool.description = described[tool.name]
             self._described = True

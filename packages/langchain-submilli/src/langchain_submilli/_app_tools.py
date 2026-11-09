@@ -291,7 +291,7 @@ class ExposedTools:
     def __bool__(self) -> bool:
         return bool(self.tools)
 
-    def prompt(self) -> str:
+    def prompt(self, *, function_docs: bool = False) -> str:
         """What the execute tool's description adds about `@tools`."""
         names = ", ".join(f"`{name}`" for name in self.tools)
         approval = (
@@ -300,11 +300,17 @@ class ExposedTools:
             if self.approvals.config
             else ""
         )
+        fetch = (
+            '`submilli__typescript__packages__functions({"requests": '
+            '[{"name": "@tools", "functions": ["tool_name"]}]})`.'
+            if function_docs
+            else '`submilli__typescript__packages__docs("@tools")`.'
+        )
         return (
             "\n\nThis agent's programs can also call the application's own tools, as the `@tools` package "
             f'(`import tools from "@tools";`): {names}. The application runs each call and returns its '
             f"result to the program.{approval} Read their signatures with "
-            '`submilli__typescript__packages__docs("@tools")`.'
+            f"{fetch}"
         )
 
     async def answer(self, call: PendingCall, runtime: ToolRuntime[Any, Any], used: list[int]) -> CallOutcome:

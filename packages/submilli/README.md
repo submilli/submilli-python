@@ -242,6 +242,18 @@ SUBMILLI_BIN=/path/to/bin uv run pytest tests/integration   # starts its own sub
 uv run python scripts/generate_sync.py          # after changing _async_client.py
 ```
 
+## Selective function documentation
+
+Both sync and async clients expose `package_docs_batch(..., view="index")` and
+`package_functions(..., requests)` on `blueprints` and `sessions`. The latter
+accepts a list of `{ "name": package_name, "functions": [function_or_type_name] }`
+objects and returns ordered per-package `results`, including errors. Single-package
+`package_docs` also accepts `view="index"`. Request the matching execution prompt
+with `blueprints.prompt(blueprint, function_docs=True)`.
+
+The functions endpoint is GET; the SDK encodes the grouped requests as JSON in
+one `requests` query parameter. Default docs and prompt requests remain unchanged.
+
 ## License
 
 Apache-2.0.

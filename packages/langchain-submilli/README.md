@@ -144,6 +144,19 @@ SUBMILLI_SERVER=http://127.0.0.1:8128 uv run pytest tests/integration_tests
 
 Implementation notes are in [NOTES.md](https://github.com/submilli/submilli-python/blob/main/packages/langchain-submilli/NOTES.md).
 
+## Function documentation mode
+
+Pass `function_docs=True` to the middleware/toolkit constructor to fetch compact
+package indexes before selected declarations. The docs tool accepts `names`, and
+`submilli__typescript__packages__functions` accepts a cross-package batch:
+
+```json
+{"requests": [{"name": "@submilli/jina", "functions": ["searchJson"]}, {"name": "submilli:crypto", "functions": ["sha256"]}]}
+```
+
+Each package returns its own result, including referenced types or an error.
+The default remains full documentation with the original tool list.
+
 ## License
 
 Apache-2.0.
