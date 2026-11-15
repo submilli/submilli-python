@@ -13,7 +13,6 @@ execute TypeScript code in Submilli's runtime.
 [Package reference](packages/langchain-submilli#readme) ·
 [OpenAI Agents](packages/openai-agents-submilli#readme) ·
 [Submilli runtime](https://github.com/submilli/submilli-runtime) ·
-[Discord](https://discord.gg/VphpukeGGj) ·
 [Website](https://submilli.ai)
 
 [![PyPI: langchain-submilli](https://img.shields.io/pypi/v/langchain-submilli?label=langchain-submilli)](https://pypi.org/project/langchain-submilli/)
@@ -126,8 +125,7 @@ Submilli is young and moving quickly. Breaking changes are recorded in the
 [`langchain-submilli`](packages/langchain-submilli/CHANGELOG.md),
 [`openai-agents-submilli`](packages/openai-agents-submilli/CHANGELOG.md), and
 [`submilli`](packages/submilli/CHANGELOG.md) changelogs. To talk with us, email
-[hello@submilli.ai](mailto:hello@submilli.ai) or join
-[Discord](https://discord.gg/VphpukeGGj).
+[hello@submilli.ai](mailto:hello@submilli.ai).
 
 ## Development
 
