@@ -10,7 +10,8 @@ under the Blueprint's policy and the SDK's own approvals.
 
 ## Install
 
-Python 3.11 or later and submilli-server 0.4.1 or later are required.
+Python 3.11 or later and a server with batch package documentation support (SUB-2074)
+are required. Selective function documentation additionally requires SUB-2193 server support.
 
 ```sh
 pip install openai-agents-submilli
