@@ -127,8 +127,8 @@ async def test_different_variables_on_a_thread_are_refused(server: FakeServer) -
 async def test_discovery_tools_do_not_open_a_session(server: FakeServer) -> None:
     model = calls_then_done(
         call("submilli__typescript__packages__search", {"query": "jina"}),
-        call("submilli__typescript__packages__docs", {"name": "@submilli/jina"}),
-        call("submilli__typescript__packages__docs", {"name": "nope"}),
+        call("submilli__typescript__packages__docs", {"names": ["@submilli/jina"]}),
+        call("submilli__typescript__packages__docs", {"names": ["nope"]}),
         call("submilli__typescript__builtins__list", {}),
         call("submilli__typescript__builtins__docs", {"names": ["Map", "JSON"]}),
         call("submilli__typescript__last_run", {}),
@@ -138,7 +138,7 @@ async def test_discovery_tools_do_not_open_a_session(server: FakeServer) -> None
     outputs = [m.content for m in result["messages"] if m.type == "tool"]
     assert json.loads(outputs[0])["results"][0]["name"] == "@submilli/jina"
     assert "searchJson" in outputs[1]
-    assert json.loads(outputs[2])["error"] == "unknown_package"
+    assert json.loads(outputs[2])["results"][0]["found"] is False
     assert json.loads(outputs[3])["types"] == ["Map"]
     assert [r["name"] for r in json.loads(outputs[4])["results"]] == ["Map", "JSON"]
     assert outputs[5] == "No program has run in this thread yet."

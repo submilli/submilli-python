@@ -333,12 +333,26 @@ class SubmilliTools:
         return await self._in_session(context, search)
 
     async def _packages_docs(self, context: ToolContext[Any], arguments: dict[str, Any]) -> str:
-        name = str(arguments["name"])
+        names = arguments["names"]
         if not self._program_tools:
-            return (await self.client.blueprints.package_docs(self.blueprint, name)).text
+            return t.as_text(
+                {
+                    "results": [
+                        dict(name=e.name, found=e.found, text=e.text)
+                        for e in await self.client.blueprints.package_docs_batch(self.blueprint, names)
+                    ]
+                }
+            )
 
         async def docs(session_id: str) -> str:
-            return (await self.client.sessions.package_docs(session_id, name)).text
+            return t.as_text(
+                {
+                    "results": [
+                        dict(name=e.name, found=e.found, text=e.text)
+                        for e in await self.client.sessions.package_docs_batch(session_id, names)
+                    ]
+                }
+            )
 
         return await self._in_session(context, docs)
 

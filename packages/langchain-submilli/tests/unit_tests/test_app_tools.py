@@ -186,6 +186,7 @@ async def test_the_execute_description_tells_the_model_about_tools(server: FakeS
     [described] = [tool for tool in model.bound[-1] if tool.name == "submilli__typescript__execute"]
     assert '`import tools from "@tools";`' in described.description
     assert "`query_orders`, `send_email`" in described.description
+    assert 'packages__docs({"names":["@tools"]})' in described.description
     assert "approval" in described.description
     # Exposed tools are for programs; the model is not given them.
     assert "query_orders" not in model.tool_names()
@@ -346,7 +347,7 @@ async def test_a_changed_tool_catalog_opens_a_new_session(server: FakeServer) ->
 
 
 async def test_package_docs_include_the_sessions_tools(server: FakeServer) -> None:
-    model = calls_then_done(call("submilli__typescript__packages__docs", {"name": "@tools"}))
+    model = calls_then_done(call("submilli__typescript__packages__docs", {"names": ["@tools"]}))
     result = await start(agent(model, middleware(ptc=[query_orders])))
 
     assert server.calls("GET", r"/v1/sessions/.*/packages/docs")

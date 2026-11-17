@@ -52,7 +52,7 @@ class PackagesSearchArgs(BaseModel):
 
 
 class PackagesDocsArgs(BaseModel):
-    name: str = Field(description="Package name, e.g. `submilli:crypto`.")
+    names: list[str] = Field(description="Package names to read before writing a program.")
 
 
 class BuiltinsDocsArgs(BaseModel):
