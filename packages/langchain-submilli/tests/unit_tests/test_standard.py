@@ -48,7 +48,7 @@ class TestPackagesSearch(_Base):
 
 class TestPackagesDocs(_Base):
     name = "submilli__typescript__packages__docs"
-    example: ClassVar[dict[str, Any]] = {"name": "@submilli/jina"}
+    example: ClassVar[dict[str, Any]] = {"names": ["@submilli/jina"]}
 
 
 class TestBuiltinsList(_Base):

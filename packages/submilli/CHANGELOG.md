@@ -4,6 +4,17 @@ All notable changes to this project are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.4] - 2026-11-17
+
+### Added
+
+- `package_docs_batch` on sync and async sessions and blueprints, returning ordered documentation entries in one GET request.
+- Selective function and type documentation through `package_functions`, `view="index"`, and `function_docs=True` prompts.
+
+### Compatibility
+
+- Batch and selective documentation require the matching server endpoints. Existing single-package documentation requests retain their default behavior.
+
 ## [0.1.3] - 2026-10-30
 
 ### Changed

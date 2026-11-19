@@ -127,6 +127,13 @@ async def test_a_program_calls_the_applications_tool(client: AsyncSubmilli) -> N
 
     docs = await client.sessions.package_docs(session.id, "@tools")
     assert docs.found and "query_orders(args: { customer: string }): { count: number }" in docs.text
+    batch = await client.sessions.package_docs_batch(session.id, ["@tools", "not-a-package", "@tools"])
+    assert [(entry.name, entry.found) for entry in batch] == [
+        ("@tools", True),
+        ("not-a-package", False),
+        ("@tools", True),
+    ]
+    assert batch[0].text == docs.text and batch[0] == batch[2]
 
 
 async def test_the_blueprint_refuses_tools_it_does_not_grant(client: AsyncSubmilli) -> None:

@@ -120,7 +120,7 @@ async def test_a_program_calls_a_typed_tool_with_the_runs_context(managed: Manag
 
 
 async def test_package_docs_show_the_tools_signatures(managed: ManagedServer) -> None:
-    model = calls_then_done(call("submilli__typescript__packages__docs", {"name": "@tools"}))
+    model = calls_then_done(call("submilli__typescript__packages__docs", {"names": ["@tools"]}))
     [output] = tool_outputs(await Runner.run(shop(managed, model), "go", context=ada()))
     assert "function query_orders(args: { customer: string }): { count: number; for_user: number };" in output.output
 

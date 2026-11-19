@@ -13,6 +13,7 @@ __all__ = [
     "ExecuteResult",
     "LastRun",
     "PackageDocs",
+    "PackageDocsEntry",
     "PendingCall",
     "RunError",
     "RunState",
@@ -253,6 +254,13 @@ class PackageDocs:
 
     found: bool
     text: str
+
+
+@dataclass(frozen=True, slots=True)
+class PackageDocsEntry(PackageDocs):
+    """One entry in a batch docs response, in request order."""
+
+    name: str
 
 
 @dataclass(frozen=True, slots=True)

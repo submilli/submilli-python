@@ -24,6 +24,7 @@ from submilli._types import (
     ExecuteResult,
     LastRun,
     PackageDocs,
+    PackageDocsEntry,
     PendingCall,
     RunningRun,
     RunState,
@@ -203,9 +204,21 @@ class Sessions:
         """The Blueprint's Package search, plus the session's own `@tools`."""
         return b.read_json(self._client._send(b.session_packages_search(session_id, query)))
 
-    def package_docs(self, session_id: str, name: str) -> PackageDocs:
+    def package_docs(self, session_id: str, name: str, *, view: str = "full") -> PackageDocs:
         """A Package's docs, where `@tools` is the session's own."""
-        return b.read_package_docs(self._client._send(b.session_packages_docs(session_id, name)))
+        return b.read_package_docs(self._client._send(b.session_packages_docs(session_id, name, view=view)))
+
+    def package_functions(self, session_id: str, requests: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        """Selected functions and types from multiple packages, with per-package results."""
+        return b.read_json(self._client._send(b.packages_functions("sessions", session_id, requests)))
+
+    def package_docs_batch(
+        self, session_id: str, names: Sequence[str], *, view: str = "full"
+    ) -> list[PackageDocsEntry]:
+        """Read several packages, or their function indexes with `view="index"`, in one request, in order."""
+        return b.read_package_docs_batch(
+            self._client._send(b.packages_docs_batch("sessions", session_id, names, view=view))
+        )
 
 
 class Runs:
@@ -289,17 +302,27 @@ class Blueprints:
     def __init__(self, client: Submilli) -> None:
         self._client = client
 
-    def prompt(self, blueprint: str) -> BlueprintPrompt:
+    def prompt(self, blueprint: str, *, function_docs: bool = False) -> BlueprintPrompt:
         """`GET /v1/blueprints/{name}/prompt`: the tool descriptions the server writes for this Blueprint."""
-        return b.read_prompt(self._client._send(b.prompt(blueprint)))
+        return b.read_prompt(self._client._send(b.prompt(blueprint, function_docs=function_docs)))
 
     def search_packages(self, blueprint: str, query: str = "") -> dict[str, Any]:
         """`GET /v1/blueprints/{name}/packages/search`. An empty query lists every Package."""
         return b.read_json(self._client._send(b.packages_search(blueprint, query)))
 
-    def package_docs(self, blueprint: str, name: str) -> PackageDocs:
+    def package_docs(self, blueprint: str, name: str, *, view: str = "full") -> PackageDocs:
         """`GET /v1/blueprints/{name}/packages/docs`."""
-        return b.read_package_docs(self._client._send(b.packages_docs(blueprint, name)))
+        return b.read_package_docs(self._client._send(b.packages_docs(blueprint, name, view=view)))
+
+    def package_functions(self, blueprint: str, requests: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        """Selected functions and types from multiple packages, with per-package results."""
+        return b.read_json(self._client._send(b.packages_functions("blueprints", blueprint, requests)))
+
+    def package_docs_batch(self, blueprint: str, names: Sequence[str], *, view: str = "full") -> list[PackageDocsEntry]:
+        """Read several packages, or their function indexes with `view="index"`, in one request, in order."""
+        return b.read_package_docs_batch(
+            self._client._send(b.packages_docs_batch("blueprints", blueprint, names, view=view))
+        )
 
     def builtins(self, blueprint: str) -> dict[str, Any]:
         """`GET /v1/blueprints/{name}/builtins`: the built-ins in scope without an import."""

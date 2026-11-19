@@ -10,7 +10,8 @@ under the Blueprint's policy and the SDK's own approvals.
 
 ## Install
 
-Python 3.11 or later and submilli-server 0.4.1 or later are required.
+Python 3.11 or later and a server with batch package documentation support (SUB-2074)
+are required. Selective function documentation additionally requires SUB-2193 server support.
 
 ```sh
 pip install openai-agents-submilli
@@ -211,6 +212,19 @@ uv run pytest tests/integration_tests  # starts a server from $SUBMILLI_BIN or P
 The integration tests use a scripted model and need no model provider key.
 
 Implementation notes are in [NOTES.md](https://github.com/submilli/submilli-python/blob/main/packages/openai-agents-submilli/NOTES.md).
+
+## Function documentation mode
+
+Pass `function_docs=True` to the middleware/toolkit constructor to fetch compact
+package indexes before selected declarations. The docs tool accepts `names`, and
+`submilli__typescript__packages__functions` accepts a cross-package batch:
+
+```json
+{"requests": [{"name": "@submilli/jina", "functions": ["searchJson"]}, {"name": "submilli:crypto", "functions": ["sha256"]}]}
+```
+
+Each package returns its own result, including referenced types or an error.
+The default remains full documentation with the original tool list.
 
 ## License
 
