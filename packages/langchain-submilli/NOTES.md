@@ -92,8 +92,8 @@ expiry tests. The HTTP client now lives in its own package, `submilli`
 - `client=` takes a ready `submilli.AsyncSubmilli`, which can wrap your own `httpx.AsyncClient`.
   The managed client keeps one `httpx.AsyncClient` per event loop, because applications and tests
   often run several loops.
-- The default request timeout is 330 s. The server may wait up to 300 s for a running request
-  with the same idempotency key.
+- The default request timeout is 330 s, leaving room for long-running programs and in-flight
+  idempotent retries waiting for an active run to finish.
 - **Async only.** The tools' sync entry points raise `NotImplementedError` with a pointer to
   `ainvoke`. deepagents does not require a sync API.
 - One `SubmilliMiddleware` per agent: two instances would share the `submilli_session` key.

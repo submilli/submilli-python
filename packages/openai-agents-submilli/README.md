@@ -101,8 +101,8 @@ instructions for using them from the Submilli server.
 - Harness secrets are sent when a session opens and are never stored. End the session before
   using rotated secrets.
 - Each execute call sends an `Idempotency-Key` derived from the SDK's tool call id. A repeated
-  call replays the recorded result. The toolkit reports conflicts and incomplete, in-progress,
-  or unavailable replays without silently rerunning the program.
+  call waits for an in-flight run or replays the recorded result. The toolkit reports conflicts
+  and incomplete or unavailable replays without silently rerunning the program.
 - When a session has ended, the toolkit opens a replacement and tells the model. If a restarted
   server asks for the session's secrets, it rebinds them once and retries.
 - On a server with durable execution, the toolkit waits for a queued run. A run that stops

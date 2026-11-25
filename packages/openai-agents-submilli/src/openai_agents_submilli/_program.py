@@ -151,9 +151,10 @@ class ProgramModel(Model):
             result, _ = answer(call.call_id, outputs[call.call_id])
             return result
 
+        state: RunState | None = None
         try:
             # With the same key, this answers the run's current state.
-            state: RunState = await self.client.sessions.execute(
+            state = await self.client.sessions.execute(
                 session_id, program.code, idempotency_key=program.idempotency_key
             )
             result = await self.client.runs.complete(state, on_tool_call=on_call)
@@ -171,9 +172,8 @@ class ProgramModel(Model):
             outcome = t.lost_run_outcome(execution_id="", session_id=session_id, tool_calls=records)
             return _response(_message(final_text(outcome)))
         except UnknownRunError as error:
-            outcome = t.lost_run_outcome(
-                execution_id=error.execution_id or "", session_id=session_id, tool_calls=records
-            )
+            execution_id = error.execution_id or (state.execution_id if state is not None else "")
+            outcome = t.lost_run_outcome(execution_id=execution_id, session_id=session_id, tool_calls=records)
             return _response(_message(final_text(outcome)))
         if not isinstance(result, ExecuteResult):  # pragma: no cover - `complete` returns only finished runs
             raise TypeError(f"unexpected run state {result!r}")
