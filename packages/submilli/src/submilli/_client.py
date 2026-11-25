@@ -293,6 +293,7 @@ class Runs:
             except (RunNotSuspendedError, UnknownCallError):
                 # A call timed out, or another attempt answered it: look again.
                 state = self.retrieve(state.execution_id)
+            delay = poll_interval
         return state
 
 

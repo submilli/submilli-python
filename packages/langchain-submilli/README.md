@@ -79,8 +79,9 @@ instructions for using them from the Submilli server.
 - Harness secrets are sent when a session opens and are never stored in agent state. End the
   session before using rotated secrets.
 - Each execute call sends an `Idempotency-Key` derived from the LangChain tool call id. A
-  repeated call replays the recorded result. The middleware reports conflicts and incomplete,
-  in-progress, or unavailable replays without silently rerunning the program.
+  repeated call waits for an in-flight run or replays the recorded result. The middleware
+  reports conflicts and incomplete or unavailable replays without silently rerunning the
+  program.
 - When a session has ended, the middleware opens a replacement. If a restarted server asks for
   the session's secrets, it rebinds them once and retries.
 - On a server with durable execution, the middleware waits for a queued run. A run that stops

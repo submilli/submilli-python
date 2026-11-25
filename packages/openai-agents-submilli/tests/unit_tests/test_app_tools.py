@@ -269,3 +269,39 @@ async def test_approvals_work_in_a_streamed_run(server: FakeServer) -> None:
     assert streamed.final_output == "done"
     [output] = [item for item in streamed.new_items if isinstance(item, ToolCallOutputItem)]
     assert json.loads(json.loads(output.output)["result"]) == ["refunded 18.0 on o_7"]
+
+
+async def test_durable_queued_and_running_states_are_polled_around_tool_calls(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    server.durable_next = [{"status": "queued", "execution_id": "run-1", "durable": True}]
+    call_item = {"call_id": "run-1:1", "tool": "greet", "args": {"name": "Ada"}}
+    server.views["run-1"] = [
+        {"status": "running", "execution_id": "run-1", "durable": True},
+        {"status": "suspended", "execution_id": "run-1", "session_id": "s", "calls": [call_item]},
+    ]
+    submilli = toolkit(greet)
+    # Seed the suspended run so `POST /v1/runs/run-1/resume` can answer it, then
+    # return `running` on the second execute (after the nested tool call) before finishing.
+    from tests.unit_tests.fake_server import Run
+
+    assistant = agent(submilli, calls_then_done(execute("main()", id="call_ptc_dur")))
+    session_created = server.open
+
+    def open_and_seed(body: dict[str, Any]) -> Any:
+        resp = session_created(body)
+        session_id = json.loads(resp.content)["session_id"]
+        server.suspended["run-1"] = Run("run-1", session_id, [("greet", {"name": "Ada"})])
+        server.durable_next.append({"status": "running", "execution_id": "run-1", "durable": True})
+        return resp
+
+    monkeypatch.setattr(server, "open", open_and_seed)
+    result = await Runner.run(assistant, "go", context=ADA)
+    output = execute_output(result)
+    reported = json.loads(output.output)
+    assert json.loads(reported["result"]) == ["hello Ada"]
+    assert len(server.calls("GET", "/v1/runs/run-1")) >= 3

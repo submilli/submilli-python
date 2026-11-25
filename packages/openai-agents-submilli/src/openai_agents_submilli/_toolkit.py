@@ -26,12 +26,12 @@ from openai_agents_submilli._program import (
 from openai_agents_submilli._sessions import InMemorySessionStore, SessionStore, SubmilliSession
 from submilli import (
     AsyncSubmilli,
-    ExecuteResult,
     IdempotencyError,
     PackageDocsEntry,
     RunStateError,
     SessionRequiresSecretsError,
     SubmilliError,
+    UnknownRunError,
     UnknownSessionError,
     idempotency_key,
 )
@@ -285,17 +285,18 @@ class SubmilliTools:
         run's context.
         """
         if self._program_agent is None:
+            state = None
             try:
                 state = await self.client.sessions.execute(session_id, code, idempotency_key=key)
+                result = await self.client.runs.complete(state)
             except IdempotencyError as error:
                 return t.idempotency_outcome(error, session_id=session_id)
             except RunStateError as error:
                 return t.run_state_outcome(error, session_id=session_id, tool_calls=[])
-            if not isinstance(state, ExecuteResult):
-                raise SubmilliError(
-                    f"run {state.execution_id} did not finish, in a session opened without application tools"
-                )
-            return t.execute_outcome(state, notice=notice)
+            except UnknownRunError as error:
+                execution_id = error.execution_id or (state.execution_id if state is not None else "")
+                return t.lost_run_outcome(execution_id=execution_id, session_id=session_id, tool_calls=[])
+            return t.execute_outcome(result, notice=notice)
         # With application tools the nested agent runs the program, from its
         # first execute on. A program resumed after an approval continues from
         # the nested run the SDK saved, whose input names the session it began

@@ -304,6 +304,7 @@ class AsyncRuns:
             except (RunNotSuspendedError, UnknownCallError):
                 # A call timed out, or another attempt answered it: look again.
                 state = await self.retrieve(state.execution_id)
+            delay = poll_interval
         return state
 
 

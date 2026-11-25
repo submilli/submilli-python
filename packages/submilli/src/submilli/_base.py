@@ -33,8 +33,8 @@ from submilli._types import (
 from submilli._version import __version__
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8128"
-# An execute may wait up to 300 seconds on the server for an earlier attempt
-# with the same idempotency key; leave room for that.
+# Programs and in-flight idempotent retries wait on the server until the run
+# settles; leave room for long-running executions.
 DEFAULT_TIMEOUT = 330.0
 DEFAULT_MAX_RETRIES = 2
 # The longest `Idempotency-Key` the server accepts, in bytes.
@@ -99,8 +99,10 @@ def should_retry(response: httpx.Response) -> bool:
         code = response.json().get("error")
     except (ValueError, AttributeError):
         return True
-    # An idempotency refusal is the server's answer, not a transient failure.
-    return code not in IDEMPOTENCY_CODES
+    # Older servers answer 503 `idempotency_in_progress` when an earlier attempt
+    # with this key is still running; retrying with the same key picks up its
+    # result. Other idempotency codes are terminal refusals.
+    return not isinstance(code, str) or code == "idempotency_in_progress" or code not in IDEMPOTENCY_CODES
 
 
 def retry_delay(attempt: int, response: httpx.Response | None) -> float:

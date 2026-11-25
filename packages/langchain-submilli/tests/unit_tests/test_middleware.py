@@ -232,8 +232,15 @@ async def test_lost_secrets_are_sent_again_with_rebind(server: FakeServer) -> No
         (503, "idempotency_unavailable", "could not read or write"),
     ],
 )
-async def test_idempotency_refusals_are_explained(server: FakeServer, status: int, code: str, phrase: str) -> None:
-    server.refuse_next.append((status, {"error": code, "detail": "server detail", "execution_id": "e-1"}))
+async def test_idempotency_refusals_are_explained(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch, status: int, code: str, phrase: str
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    refusal = (status, {"error": code, "detail": "server detail", "execution_id": "e-1"})
+    server.refuse_next.extend([refusal] * (3 if code == "idempotency_in_progress" else 1))
     message = tool_message(await run(agent(calls_then_done(execute("a")), middleware())))
     body = content(message)
     assert body["error"]["kind"] == code
@@ -242,6 +249,22 @@ async def test_idempotency_refusals_are_explained(server: FakeServer, status: in
     assert message.status == "error"
     assert message.artifact["refusal"] == code
     assert message.artifact["execution_id"] == "e-1"
+
+
+async def test_idempotency_in_progress_retries_with_the_same_key_and_returns_the_result(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    server.refuse_next.append((503, {"error": "idempotency_in_progress", "detail": "still running"}))
+    result = await run(agent(calls_then_done(execute("code", id="toolu_retry")), middleware()))
+    message = tool_message(result)
+    assert message.status == "success"
+    assert content(message) == {"result": "ok", "console": [], "error": None, "denied": False}
+    executes = server.calls("POST", r"/v1/sessions/.*/execute")
+    assert [req.headers["idempotency-key"] for req in executes] == ["toolu_retry", "toolu_retry"]
 
 
 async def test_incomplete_tells_the_model_to_check_before_retrying(server: FakeServer) -> None:

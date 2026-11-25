@@ -341,3 +341,34 @@ def test_the_sync_client_answers_calls(server: FakeServer) -> None:
 def test_resume_needs_a_result() -> None:
     with Submilli(base_url=SERVER) as client, pytest.raises(ValueError):
         client.runs.resume("r", [])
+
+
+async def test_complete_resets_poll_backoff_after_resuming_a_suspended_call(
+    router: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    delays: list[float] = []
+
+    async def record_sleep(seconds: float) -> None:
+        delays.append(seconds)
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", record_sleep)
+    router.post(f"{SERVER}/v1/sessions/s/execute").mock(return_value=reply(lifecycle("queued")))
+    router.get(f"{SERVER}/v1/runs/r").mock(
+        side_effect=[
+            reply(lifecycle("running")),
+            reply(SUSPENDED),
+            reply(lifecycle("completed", response={**RETAINED, "result": "ok", "console": [], "error": None})),
+        ]
+    )
+    router.post(f"{SERVER}/v1/runs/r/resume").mock(return_value=reply(lifecycle("running")))
+
+    async with AsyncSubmilli(base_url=SERVER, token=TOKEN) as client:
+        state = await client.sessions.execute("s", "code")
+        result = await client.runs.complete(
+            state,
+            poll_interval=0.1,
+            max_poll_interval=2.0,
+            on_tool_call=lambda c: ToolResult.success(c.call_id, 1),
+        )
+    assert result.result == "ok"
+    assert delays == [0.1, 0.2, 0.1]

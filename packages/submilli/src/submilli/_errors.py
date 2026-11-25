@@ -181,10 +181,11 @@ class IdempotencyError(APIStatusError):
 
     `code` says why: `idempotency_conflict` (the key was used with other code),
     `idempotency_incomplete` (an earlier attempt never recorded an outcome, so
-    its effects are unknown), `idempotency_in_progress` (an earlier attempt is
-    still running), `idempotency_unavailable` (the record could not be read or
-    written), `idempotency_response_expired` (the earlier result is no longer
-    retained), or `idempotency_key_invalid`.
+    its effects are unknown), `idempotency_in_progress` (an older server still
+    had an earlier attempt running after retries were exhausted),
+    `idempotency_unavailable` (the record could not be read or written),
+    `idempotency_response_expired` (the earlier result is no longer retained),
+    or `idempotency_key_invalid`.
     """
 
     @property

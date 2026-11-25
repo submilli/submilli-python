@@ -186,23 +186,80 @@ async def test_an_execute_without_a_key_is_never_retried(router: respx.MockRoute
 
 async def test_an_idempotency_refusal_is_an_answer_not_a_transient_failure(router: respx.MockRouter) -> None:
     route = router.post(f"{SERVER}/v1/sessions/s/execute").mock(
-        return_value=httpx.Response(503, json={"error": "idempotency_in_progress"})
+        return_value=httpx.Response(503, json={"error": "idempotency_unavailable"})
     )
     async with AsyncSubmilli(base_url=SERVER, token=TOKEN, max_retries=3) as client:
-        with pytest.raises(IdempotencyError):
+        with pytest.raises(IdempotencyError) as raised:
             await client.sessions.execute("s", "code", idempotency_key="k")
+    assert raised.value.code == "idempotency_unavailable"
     assert route.call_count == 1
+
+
+async def test_idempotency_in_progress_is_retried_with_the_same_key(
+    router: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    route = router.post(f"{SERVER}/v1/sessions/s/execute").mock(
+        side_effect=[
+            httpx.Response(503, json={"error": "idempotency_in_progress"}),
+            httpx.Response(
+                200,
+                json={"status": "finished", "execution_id": "r", "session_id": "s", "result": "done", "console": []},
+            ),
+        ]
+    )
+    async with AsyncSubmilli(base_url=SERVER, token=TOKEN, max_retries=2) as client:
+        result = await client.sessions.execute("s", "code", idempotency_key="k")
+    assert isinstance(result, ExecuteResult) and result.result == "done"
+    assert route.call_count == 2
+    assert [call.request.headers["idempotency-key"] for call in route.calls] == ["k", "k"]
+
+
+async def test_idempotency_in_progress_raises_after_retries_are_exhausted(
+    router: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    route = router.post(f"{SERVER}/v1/sessions/s/execute").mock(
+        return_value=httpx.Response(503, json={"error": "idempotency_in_progress", "detail": "still running"})
+    )
+    async with AsyncSubmilli(base_url=SERVER, token=TOKEN, max_retries=2) as client:
+        with pytest.raises(IdempotencyError) as raised:
+            await client.sessions.execute("s", "code", idempotency_key="k")
+    assert raised.value.code == "idempotency_in_progress"
+    assert route.call_count == 3
 
 
 def test_a_gateway_error_is_retried(router: respx.MockRouter) -> None:
     route = router.get(f"{SERVER}/v1/runs/r").mock(
         side_effect=[
-            httpx.Response(502, headers={"retry-after": "0"}),
+            httpx.Response(502, headers={"retry-after": "0"}, json={"error": {"message": "Bad Gateway"}}),
             httpx.Response(200, json={"status": "running", "execution_id": "r", "session_id": "s"}),
         ]
     )
     with Submilli(base_url=SERVER, token=TOKEN, max_retries=1) as client:
         assert client.runs.retrieve("r").status == "running"
+    assert route.call_count == 2
+
+
+def test_sync_client_retries_idempotency_in_progress(router: respx.MockRouter) -> None:
+    route = router.post(f"{SERVER}/v1/sessions/s/execute").mock(
+        side_effect=[
+            httpx.Response(503, headers={"retry-after": "0"}, json={"error": "idempotency_in_progress"}),
+            httpx.Response(
+                200,
+                json={"status": "finished", "execution_id": "r", "session_id": "s", "result": "ok", "console": []},
+            ),
+        ]
+    )
+    with Submilli(base_url=SERVER, token=TOKEN, max_retries=1) as client:
+        result = client.sessions.execute("s", "code", idempotency_key="k")
+    assert isinstance(result, ExecuteResult) and result.result == "ok"
     assert route.call_count == 2
 
 

@@ -230,8 +230,8 @@ across restarts. A server whose key changed refuses such a session with a `Confl
 A connection failure, or a 502, 503, or 504, is retried up to `max_retries` times (default 2),
 with backoff, but only for requests that are safe to repeat: reads, deletes, rebinds, resumes,
 and executes that carry an idempotency key. An execute without a key and `sessions.create` are
-never retried. The default timeout is 330 seconds, because an execute may wait up to 300 seconds
-for an earlier attempt with the same key.
+never retried. The default timeout is 330 seconds, leaving room for long-running programs and
+in-flight idempotent retries waiting for an active run to finish.
 
 ```python
 client = AsyncSubmilli(timeout=60.0, max_retries=0, http_client=httpx.AsyncClient(...))

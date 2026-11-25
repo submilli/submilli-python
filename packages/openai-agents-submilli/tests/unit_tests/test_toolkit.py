@@ -227,6 +227,55 @@ async def test_a_durable_run_without_a_result_is_reported_not_raised(server: Fak
     assert output.custom_data is not None and output.custom_data["run_status"] == "stuck"
 
 
+async def test_a_queued_or_running_durable_run_is_waited_for(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    server.durable_next = [{"status": "queued", "execution_id": "run-1", "durable": True}]
+    retained = {"status": "finished", "execution_id": "run-1", "session_id": "s", "result": "42", "console": []}
+    server.views["run-1"] = [
+        {"status": "running", "execution_id": "run-1", "durable": True},
+        {"status": "completed", "execution_id": "run-1", "durable": True, "response": {**retained, "error": None}},
+    ]
+    result = await run(toolkit(), calls_then_done(execute("a", id="call_dur")))
+    [output] = outputs(result)
+    assert content(output) == {"result": "42", "console": [], "error": None, "denied": False}
+    assert output.custom_data is not None and output.custom_data["execution_id"] == "run-1"
+    assert len(server.calls("GET", "/v1/runs/run-1")) == 2
+
+
+async def test_a_lost_durable_run_keeps_its_execution_id_in_custom_data(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    server.durable_next = [{"status": "queued", "execution_id": "run-lost-1", "durable": True}]
+    result = await run(toolkit(), calls_then_done(execute("a", id="call_lost")))
+    [output] = outputs(result)
+    assert content(output)["error"]["kind"] == "run_lost"
+    assert output.custom_data is not None and output.custom_data["execution_id"] == "run-lost-1"
+
+
+async def test_idempotency_in_progress_retries_with_the_same_key_and_returns_the_result(
+    server: FakeServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr("submilli._async_client.asyncio.sleep", no_sleep)
+    server.refuse_next = [(503, {"error": "idempotency_in_progress", "detail": "still running"})]
+    result = await run(toolkit(), calls_then_done(execute("a", id="call_retry")))
+    [output] = outputs(result)
+    assert content(output) == {"result": "ok", "console": [], "error": None, "denied": False}
+    executes = server.calls("POST", r"/v1/sessions/[^/]+/execute")
+    assert [req.headers["idempotency-key"] for req in executes] == ["call_retry", "call_retry"]
+
+
 async def test_the_same_tool_call_replays(server: FakeServer) -> None:
     submilli = toolkit()
     await run(submilli, calls_then_done(execute("a", id="call_same")))
